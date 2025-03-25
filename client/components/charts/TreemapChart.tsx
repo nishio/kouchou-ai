@@ -32,11 +32,24 @@ export function TreemapChart({clusterList, argumentList}: Props) {
     pathbar: {
       thickness: 28,
     },
+    textfont: {
+      size: 14, // ツリーマップ内のテキストのフォントサイズ
+    },
+    hoverlabel: {
+      font: {
+        size: 14, // ホバー時のラベルフォントサイズ
+        color: '#333',
+      },
+    },
   }
 
   const layout = {
     margin: {l: 10, r: 10, b: 10, t: 30},
     colorway: ['#b3daa1', '#f5c5d7', '#d5e5f0', '#fbecc0', '#80b8ca', '#dabeed', '#fad1af', '#fbb09d', '#a6e3ae', '#f1e4d6'],
+    font: {
+      size: 16, // ベースのフォントサイズを大きく設定
+      color: '#333'
+    }
   }
 
   return (
