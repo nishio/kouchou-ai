@@ -4,18 +4,21 @@ import {Chart} from '@/components/report/Chart'
 import {Analysis} from '@/components/report/Analysis'
 import React, {PropsWithChildren, useEffect, useState} from 'react'
 import {Skeleton} from '@/components/ui/skeleton'
-import {Cluster, Result} from '@/type'
+import {Cluster, Result, Meta} from '@/type'
 import {LoadingBar} from '@/components/report/LoadingBar'
 import {SelectChartButton} from '@/components/charts/SelectChartButton'
 import {DensityFilterSettingDialog} from '@/components/report/DensityFilterSettingDialog'
+import {DownloadButton} from '@/components/report/DownloadButton'
 import {getApiBaseUrl} from '@/app/utils/api'
+import {Flex} from '@chakra-ui/react'
 
 type Props = {
   reportName: string
   resultSize: number
+  meta: Meta
 }
 
-export function ClientContainer({reportName, resultSize, children}: PropsWithChildren<Props>) {
+export function ClientContainer({reportName, resultSize, meta, children}: PropsWithChildren<Props>) {
   const [loadedSize, setLoadedSize] = useState(0)
   const [result, setResult] = useState<Result>()
   const [filteredResult, setFilteredResult] = useState<Result>()
@@ -102,24 +105,27 @@ export function ClientContainer({reportName, resultSize, children}: PropsWithChi
           onChangeFilter={onChangeDensityFilter}
         />
       )}
-      <SelectChartButton
-        selected={selectedChart}
-        onChange={(selectedChart) => {
-          setSelectedChart(selectedChart)
-          if (selectedChart === 'scatterAll' || selectedChart === 'treemap') {
-            updateFilteredResult(1, 0)
-          }
-          if (selectedChart === 'scatterDensity') {
-            updateFilteredResult(maxDensity, minValue)
-          }
-        }}
-        onClickDensitySetting={() => {
-          setOpenDensityFilterSetting(true)
-        }}
-        onClickFullscreen={() => {
-          setIsFullscreen(true)
-        }}
-      />
+      <Flex justifyContent="space-between" alignItems="center" mb={4}>
+        <SelectChartButton
+          selected={selectedChart}
+          onChange={(selectedChart) => {
+            setSelectedChart(selectedChart)
+            if (selectedChart === 'scatterAll' || selectedChart === 'treemap') {
+              updateFilteredResult(1, 0)
+            }
+            if (selectedChart === 'scatterDensity') {
+              updateFilteredResult(maxDensity, minValue)
+            }
+          }}
+          onClickDensitySetting={() => {
+            setOpenDensityFilterSetting(true)
+          }}
+          onClickFullscreen={() => {
+            setIsFullscreen(true)
+          }}
+        />
+        {result && <DownloadButton reportName={reportName} result={result} meta={meta} />}
+      </Flex>
       <Chart
         result={filteredResult}
         selectedChart={selectedChart}

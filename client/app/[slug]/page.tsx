@@ -90,7 +90,7 @@ export default async function Page({params}: PageProps) {
       <div className={'container'}>
         <Header meta={meta}/>
         <Overview result={result}/>
-        <ClientContainer resultSize={resultSize} reportName={slug}>
+        <ClientContainer resultSize={resultSize} reportName={slug} meta={meta}>
           {result.clusters.filter(c => c.level === 1).map(c => (
             <ClusterOverview key={c.id} cluster={c}/>
           ))}
