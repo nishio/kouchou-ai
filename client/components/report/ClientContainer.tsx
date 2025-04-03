@@ -83,8 +83,26 @@ export function ClientContainer({result}: Props) {
 
 function getDenseClusters(clusters: Cluster[], maxDensity: number, minValue: number): Cluster[] {
   const deepestLevel = clusters.reduce((maxLevel, cluster) => Math.max(maxLevel, cluster.level), 0)
+  
+  console.log('=== Dense Cluster Extraction ===')
+  console.log(`Filter settings: maxDensity=${maxDensity}, minValue=${minValue}`)
+  
+  const deepestLevelClusters = clusters.filter(c => c.level === deepestLevel)
+  console.log(`Total clusters at deepest level (${deepestLevel}): ${deepestLevelClusters.length}`)
+  
+  deepestLevelClusters.forEach(cluster => {
+    console.log(`Cluster ID: ${cluster.id}, Label: ${cluster.label}, Density: ${cluster.density_rank_percentile}, Elements: ${cluster.value}`)
+  })
+  
+  const filteredDeepestLevelClusters = deepestLevelClusters
+    .filter(c => c.density_rank_percentile <= maxDensity)
+    .filter(c => c.value >= minValue)
+  
+  console.log(`Clusters after filtering: ${filteredDeepestLevelClusters.length}`)
+  console.log('=== End of Dense Cluster Extraction ===')
+  
   return [
     ...clusters.filter(c => c.level !== deepestLevel),
-    ...clusters.filter(c => c.level === deepestLevel).filter(c => c.density_rank_percentile <= maxDensity).filter(c => c.value >= minValue)
+    ...filteredDeepestLevelClusters
   ]
 }
