@@ -1,14 +1,7 @@
 import os
 
-import openai
 from dotenv import load_dotenv
-
-# FIXME: Issue #58
-from langchain.embeddings import OpenAIEmbeddings
-from openai import AzureOpenAI
-
-# from langchain_openai import AzureOpenAIEmbeddings
-
+from openai import AzureOpenAI, OpenAI
 
 DOTENV_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../.env"))
 load_dotenv(DOTENV_PATH)
@@ -116,7 +109,9 @@ def request_to_embed(args, model):
 
     else:
         _validate_model(model)
-        embeds = OpenAIEmbeddings(model=model).embed_documents(args)
+        client = OpenAI()
+        response = client.embeddings.create(input=args, model=model)
+        embeds = [item.embedding for item in response.data]
     return embeds
 
 
