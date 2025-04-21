@@ -48,7 +48,7 @@ def parse_response(response):
     """
     try:
         obj = json.loads(response)
-        
+
         if isinstance(obj, list) and all(isinstance(item, dict) for item in obj):
             items = []
             for item in obj:
@@ -60,16 +60,16 @@ def parse_response(response):
                             items.append(value.strip())
                             break
             return items
-        
+
         if isinstance(obj, str):
             obj = [obj]
-            
+
         if isinstance(obj, list):
             items = [a.strip() for a in obj if a and isinstance(a, str) and a.strip()]
             return items
-            
+
         return []
-        
+
     except Exception:
         # 不要なコードブロックを除去
         response = response.replace("```json", "").replace("```", "")
@@ -86,7 +86,7 @@ def parse_response(response):
 
         try:
             obj = json.loads(json_str)
-            
+
             if isinstance(obj, list) and all(isinstance(item, dict) for item in obj):
                 items = []
                 for item in obj:
@@ -98,16 +98,16 @@ def parse_response(response):
                                 items.append(value.strip())
                                 break
                 return items
-            
+
             if isinstance(obj, str):
                 obj = [obj]
-                
+
             if isinstance(obj, list):
                 items = [a.strip() for a in obj if a and isinstance(a, str) and a.strip()]
                 return items
-                
+
             return []
-            
+
         except Exception as e:
             print("Error:", e)
             print("Input was:", json_str)

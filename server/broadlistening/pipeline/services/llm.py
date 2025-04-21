@@ -93,12 +93,12 @@ def request_to_chat_openai(
 ) -> dict:
     """
     LLMにリクエストを送信し、応答を取得する。
-    
+
     Args:
         messages: 会話メッセージのリスト
         model: 使用するモデル名
         is_json: JSON形式の応答を要求するかどうか
-        
+
     Returns:
         LLMからの応答テキスト
     """

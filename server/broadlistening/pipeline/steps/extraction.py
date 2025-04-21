@@ -136,7 +136,7 @@ def extract_arguments(input, prompt, model, retries=1):
         print("Input was:", input)
         print("Response was:", response)
         print("Trying to recover from invalid JSON format...")
-        
+
         try:
             if isinstance(response, str):
                 items = parse_response(response)
@@ -145,6 +145,6 @@ def extract_arguments(input, prompt, model, retries=1):
                     return items
         except Exception as inner_e:
             print("Recovery attempt failed:", inner_e)
-        
+
         print("Giving up on trying to generate valid list.")
         return []
