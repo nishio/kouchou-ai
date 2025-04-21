@@ -100,11 +100,6 @@ export default async function Page({ params }: PageProps) {
         <Header meta={meta} />
         <Overview result={result} />
         <ClientContainer result={result} />
-        {result.clusters
-          .filter((c) => c.level === 1)
-          .map((c) => (
-            <ClusterOverview key={c.id} cluster={c} />
-          ))}
         <Analysis result={result} />
         <BackButton />
         <Separator my={12} maxW={"750px"} mx={"auto"} />

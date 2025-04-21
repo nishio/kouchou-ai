@@ -2,6 +2,7 @@
 
 import { SelectChartButton } from "@/components/charts/SelectChartButton";
 import { Chart } from "@/components/report/Chart";
+import { ClusterOverview } from "@/components/report/ClusterOverview";
 import { DensityFilterSettingDialog } from "@/components/report/DensityFilterSettingDialog";
 import type { Cluster, Result } from "@/type";
 import { useEffect, useState } from "react";
@@ -19,6 +20,9 @@ export function ClientContainer({ result }: Props) {
   const [minValue, setMinValue] = useState(5);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDenseGroupEnabled, setIsDenseGroupEnabled] = useState(true);
+  const [displayClusters, setDisplayClusters] = useState<Cluster[]>(
+    result.clusters.filter((c) => c.level === 1)
+  );
 
   // maxDensityやminValueが変化するたびに密度フィルターの結果をチェック
   useEffect(() => {
@@ -41,11 +45,28 @@ export function ClientContainer({ result }: Props) {
       ...result,
       clusters: filtered,
     });
+
+    if (selectedChart === "scatterDensity") {
+      const deepestLevel = Math.max(...filtered.map((c) => c.level));
+      setDisplayClusters(filtered.filter((c) => c.level === deepestLevel));
+    } else {
+      setDisplayClusters(result.clusters.filter((c) => c.level === 1));
+    }
   }
 
   function onChangeDensityFilter(maxDensity: number, minValue: number) {
     setMaxDensity(maxDensity);
     setMinValue(minValue);
+    if (selectedChart === "scatterDensity") {
+      updateFilteredResult(maxDensity, minValue);
+    }
+  }
+
+  function handleChartChange(selectedChart: string) {
+    setSelectedChart(selectedChart);
+    if (selectedChart === "scatterAll" || selectedChart === "treemap") {
+      updateFilteredResult(1, 0);
+    }
     if (selectedChart === "scatterDensity") {
       updateFilteredResult(maxDensity, minValue);
     }
@@ -65,15 +86,7 @@ export function ClientContainer({ result }: Props) {
       )}
       <SelectChartButton
         selected={selectedChart}
-        onChange={(selectedChart) => {
-          setSelectedChart(selectedChart);
-          if (selectedChart === "scatterAll" || selectedChart === "treemap") {
-            updateFilteredResult(1, 0);
-          }
-          if (selectedChart === "scatterDensity") {
-            updateFilteredResult(maxDensity, minValue);
-          }
-        }}
+        onChange={handleChartChange}
         onClickDensitySetting={() => {
           setOpenDensityFilterSetting(true);
         }}
@@ -90,6 +103,10 @@ export function ClientContainer({ result }: Props) {
           setIsFullscreen(false);
         }}
       />
+      {/* クラスタの説明文を表示 - 選択されたチャートタイプに応じて表示するクラスタを変更 */}
+      {displayClusters.map((c) => (
+        <ClusterOverview key={c.id} cluster={c} />
+      ))}
     </>
   );
 }
