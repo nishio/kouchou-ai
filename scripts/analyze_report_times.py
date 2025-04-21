@@ -242,9 +242,66 @@ def display_individual_reports(df: pd.DataFrame) -> None:
         
         print(f"合計実行時間: {format_time(report_total_duration)}")
 
+def test_comment_analysis():
+    """コメント分析のテスト関数"""
+    print("サンプルCSVファイルでコメント分析をテストしています...")
+    
+    test_files = [
+        INPUT_DIR / "example-polis.csv",
+        INPUT_DIR / "dummy-comments-japan.csv"
+    ]
+    
+    for test_file in test_files:
+        if not test_file.exists():
+            print(f"テストファイル {test_file} が見つかりません")
+            continue
+            
+        print(f"\n=== ファイル: {test_file.name} ===")
+        try:
+            with open(test_file, 'r', encoding='utf-8') as f:
+                reader = csv.reader(f)
+                headers = next(reader, None)
+                
+                if headers:
+                    print(f"ヘッダー: {headers}")
+                    
+                    comment_col_idx = 0
+                    for i, header in enumerate(headers):
+                        if header.lower() in ['comment-body', 'comment', 'body', 'text', 'コメント']:
+                            comment_col_idx = i
+                            print(f"コメント列を特定: '{header}' (インデックス {i})")
+                            break
+                
+                comments = []
+                for row in reader:
+                    if row and len(row) > comment_col_idx:
+                        comment = row[comment_col_idx].strip()
+                        if comment:
+                            comments.append(comment)
+                
+                if comments:
+                    total_chars = sum(len(comment) for comment in comments)
+                    avg_length = total_chars / len(comments) if comments else 0
+                    
+                    print(f"コメント数: {len(comments)}")
+                    print(f"合計文字数: {total_chars}")
+                    print(f"平均コメント長: {avg_length:.1f} 文字")
+                    print(f"最短コメント: {min(len(c) for c in comments)} 文字")
+                    print(f"最長コメント: {max(len(c) for c in comments)} 文字")
+                    
+                    print("\nコメントサンプル:")
+                    for i, comment in enumerate(comments[:3]):
+                        print(f"{i+1}. '{comment[:50]}...' (長さ: {len(comment)}文字)")
+                else:
+                    print("コメントが見つかりませんでした")
+        except Exception as e:
+            print(f"エラー: {e}")
+
 def main():
     """メイン関数"""
-    print("レポート実行時間データを分析しています...")
+    test_comment_analysis()
+    
+    print("\nレポート実行時間データを分析しています...")
     
     df = analyze_reports()
     
