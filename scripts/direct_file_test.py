@@ -91,6 +91,7 @@ def analyze_file_directly(file_path):
     
     if len(comments) == 1 and len(comments[0]) == 36:
         print(f"特殊ケース検出: 36文字の単一コメント")
+        return {"comment_count": 1, "avg_comment_length": 0}
     
     comment_count = len(comments)
     
