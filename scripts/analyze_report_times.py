@@ -9,31 +9,23 @@ extracts timing information for each step, correlating it with the input size.
 import json
 import os
 import pandas as pd
-import matplotlib.pyplot as plt
 from pathlib import Path
 import csv
 from typing import Dict, List, Tuple, Any
 
 import sys
-try:
-    sys.path.append(str(Path(__file__).parent.parent))
-    from src.config import settings
-    REPORT_DIR = settings.REPORT_DIR
-    INPUT_DIR = settings.INPUT_DIR
-except ImportError:
-    print("Could not import settings, using default paths...")
-    REPORT_DIR = Path(__file__).parent.parent / "data" / "reports"
-    INPUT_DIR = Path(__file__).parent.parent / "data" / "inputs"
+REPORT_DIR = Path(__file__).parent.parent / "server/broadlistening/pipeline/outputs"
+INPUT_DIR = Path(__file__).parent.parent / "server/broadlistening/pipeline/inputs"
 
-def count_comments_in_report(report_dir: Path) -> int:
+def analyze_comments_in_report(report_dir: Path) -> Dict[str, float]:
     """
-    Count the number of comments in a report by reading the input CSV file.
+    Count the number of comments and calculate average comment length in a report.
     
     Args:
         report_dir: Path to the report directory
         
     Returns:
-        int: Number of comments in the report
+        dict: Dictionary with comment count and average length
     """
     input_file = None
     report_slug = report_dir.name
@@ -50,36 +42,52 @@ def count_comments_in_report(report_dir: Path) -> int:
     
     if input_file is None:
         print(f"Could not find input file for report {report_slug}")
-        return 0
+        return {"comment_count": 0, "avg_comment_length": 0}
     
     try:
         with open(input_file, 'r', encoding='utf-8') as f:
             reader = csv.reader(f)
-            next(reader, None)
-            count = sum(1 for _ in reader)
-            return count
+            next(reader, None)  # Skip header
+            
+            comments = []
+            for row in reader:
+                if row and len(row) > 0:
+                    comments.append(row[0])  # Assuming comment text is in the first column
+            
+            comment_count = len(comments)
+            
+            if comment_count > 0:
+                total_length = sum(len(comment) for comment in comments)
+                avg_length = total_length / comment_count
+            else:
+                avg_length = 0
+                
+            return {
+                "comment_count": comment_count,
+                "avg_comment_length": avg_length
+            }
     except Exception as e:
         print(f"Error reading input file for report {report_slug}: {e}")
-        return 0
+        return {"comment_count": 0, "avg_comment_length": 0}
 
 def get_report_metadata(report_dir: Path) -> Dict[str, Any]:
     """
     Get metadata about a report from its status file.
-    
+
     Args:
         report_dir: Path to the report directory
-        
+
     Returns:
         dict: Report metadata including slug, title, and creation time
     """
     status_file = report_dir / "hierarchical_status.json"
     if not status_file.exists():
         return {}
-    
+
     try:
         with open(status_file, 'r', encoding='utf-8') as f:
             status = json.load(f)
-            
+
         return {
             "slug": report_dir.name,
             "title": status.get("question", "Unknown"),
@@ -93,28 +101,28 @@ def get_report_metadata(report_dir: Path) -> Dict[str, Any]:
 def get_step_durations(report_dir: Path) -> Dict[str, float]:
     """
     Extract the duration of each step from a report's status file.
-    
+
     Args:
         report_dir: Path to the report directory
-        
+
     Returns:
         dict: Dictionary mapping step names to durations in seconds
     """
     status_file = report_dir / "hierarchical_status.json"
     if not status_file.exists():
         return {}
-    
+
     try:
         with open(status_file, 'r', encoding='utf-8') as f:
             status = json.load(f)
-            
+
         durations = {}
         for job in status.get("completed_jobs", []):
             step = job.get("step")
             duration = job.get("duration")
             if step and duration is not None:
                 durations[step] = duration
-                
+
         return durations
     except Exception as e:
         print(f"Error reading status file for report {report_dir.name}: {e}")
@@ -140,7 +148,7 @@ def analyze_reports() -> pd.DataFrame:
         if not metadata or metadata.get("status") != "completed":
             continue
             
-        comment_count = count_comments_in_report(report_dir)
+        comment_info = analyze_comments_in_report(report_dir)
         
         durations = get_step_durations(report_dir)
         if not durations:
@@ -150,7 +158,8 @@ def analyze_reports() -> pd.DataFrame:
             "slug": metadata.get("slug", "Unknown"),
             "title": metadata.get("title", "Unknown"),
             "created_at": metadata.get("created_at", "Unknown"),
-            "comment_count": comment_count,
+            "comment_count": comment_info["comment_count"],
+            "avg_comment_length": comment_info["avg_comment_length"],
             **durations
         })
     
@@ -160,62 +169,21 @@ def analyze_reports() -> pd.DataFrame:
     else:
         return pd.DataFrame()
 
-def generate_summary(df: pd.DataFrame) -> Dict[str, Dict[str, float]]:
-    """
-    Generate a summary of timing data by input size ranges.
-    
-    Args:
-        df: DataFrame containing timing data
-        
-    Returns:
-        dict: Summary statistics by input size range
-    """
-    if df.empty:
-        return {}
-        
-    size_ranges = [(0, 50), (51, 100), (101, 200), (201, 500), (501, 1000), (1001, float('inf'))]
-    
-    step_names = [col for col in df.columns if col not in ["slug", "title", "created_at", "comment_count"]]
-    
-    summary = {}
-    
-    for start, end in size_ranges:
-        range_label = f"{start}-{end if end != float('inf') else '+'}"
-        
-        range_df = df[(df["comment_count"] >= start) & (df["comment_count"] <= end)]
-        
-        if range_df.empty:
-            continue
-            
-        avg_durations = {}
-        for step in step_names:
-            if step in range_df.columns:
-                avg_durations[step] = range_df[step].mean()
-                
-        total_avg = sum(avg_durations.values())
-        
-        summary[range_label] = {
-            "count": len(range_df),
-            "avg_comment_count": range_df["comment_count"].mean(),
-            "total_avg_duration": total_avg,
-            "steps": avg_durations
-        }
-    
-    return summary
+
 
 def format_time(seconds: float) -> str:
     """
     Format time in seconds to a human-readable string.
-    
+
     Args:
         seconds: Time in seconds
-        
+
     Returns:
         str: Formatted time string (e.g., "2m 30s")
     """
     minutes, seconds = divmod(int(seconds), 60)
     hours, minutes = divmod(minutes, 60)
-    
+
     if hours > 0:
         return f"{hours}h {minutes}m {seconds}s"
     elif minutes > 0:
@@ -234,56 +202,41 @@ def main():
     
     print(f"Found {len(df)} completed reports.")
     
-    summary = generate_summary(df)
+    avg_comment_count = df["comment_count"].mean()
+    avg_comment_length = df["avg_comment_length"].mean()
     
-    print("\n=== Summary by Input Size ===")
-    for size_range, data in summary.items():
-        print(f"\nInput Size: {size_range} comments ({data['count']} reports, avg {data['avg_comment_count']:.1f} comments)")
-        print(f"Total Average Duration: {format_time(data['total_avg_duration'])}")
+    print(f"\n=== Overall Averages ===")
+    print(f"Average Comment Count: {avg_comment_count:.1f}")
+    print(f"Average Comment Length: {avg_comment_length:.1f} characters")
+    
+    step_names = [col for col in df.columns if col not in ["slug", "title", "created_at", "comment_count", "avg_comment_length"]]
+    
+    print("\n=== Average Step Durations ===")
+    total_avg_duration = 0
+    for step in step_names:
+        avg_duration = df[step].mean()
+        total_avg_duration += avg_duration
+        print(f"  - {step}: {format_time(avg_duration)}")
+    
+    print(f"\nTotal Average Duration: {format_time(total_avg_duration)}")
+    
+    print("\n=== Individual Report Data ===")
+    for _, row in df.sort_values("comment_count").iterrows():
+        print(f"\nReport: {row['title']} ({row['slug']})")
+        print(f"Comments: {row['comment_count']} (avg length: {row['avg_comment_length']:.1f} characters)")
         
-        print("\nStep Durations:")
-        if isinstance(data['steps'], dict):
-            for step, duration in data['steps'].items():
-                print(f"  - {step}: {format_time(duration)}")
-        else:
-            print("  No step duration data available.")
+        report_total_duration = 0
+        print("Step Durations:")
+        for step in step_names:
+            duration = row[step]
+            report_total_duration += duration
+            print(f"  - {step}: {format_time(duration)}")
+        
+        print(f"Total Duration: {format_time(report_total_duration)}")
     
     output_file = Path(__file__).parent / "report_timing_analysis.csv"
     df.to_csv(output_file, index=False)
     print(f"\nDetailed data saved to {output_file}")
-    
-    try:
-        plt.figure(figsize=(12, 8))
-        
-        step_names = [col for col in df.columns if col not in ["slug", "title", "created_at", "comment_count"]]
-        
-        ranges = list(summary.keys())
-        
-        bottom = [0] * len(ranges)
-        
-        for step in step_names:
-            values = []
-            for size_range in ranges:
-                steps_data = summary[size_range]['steps']
-                if isinstance(steps_data, dict) and step in steps_data:
-                    values.append(steps_data[step] / 60)  # Convert to minutes
-                else:
-                    values.append(0)
-            plt.bar(ranges, values, bottom=bottom, label=step)
-            bottom = [b + v for b, v in zip(bottom, values)]
-        
-        plt.xlabel('Input Size (Number of Comments)')
-        plt.ylabel('Average Duration (minutes)')
-        plt.title('Average Report Generation Time by Input Size and Step')
-        plt.legend()
-        plt.tight_layout()
-        
-        chart_file = Path(__file__).parent / "report_timing_chart.png"
-        plt.savefig(chart_file)
-        print(f"Chart saved to {chart_file}")
-        
-    except Exception as e:
-        print(f"Could not generate visualization: {e}")
     
     print("\nAnalysis complete!")
 
