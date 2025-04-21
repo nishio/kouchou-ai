@@ -6,10 +6,10 @@ from fastapi.responses import FileResponse, ORJSONResponse
 from fastapi.security.api_key import APIKeyHeader
 
 from src.config import settings
-from src.schemas.admin_report import ReportInput
+from src.schemas.admin_report import Prompt, ReportInput
 from src.schemas.report import Report, ReportStatus
-from src.services.report_launcher import _build_config, launch_report_generation, save_config_file
-from src.services.report_status import load_status_as_reports, set_status, toggle_report_public_state
+from src.services.report_launcher import launch_report_generation
+from src.services.report_status import add_new_report_to_status, load_status_as_reports, set_status, toggle_report_public_state
 from src.utils.logger import setup_logger
 
 slogger = setup_logger()
@@ -157,9 +157,6 @@ async def duplicate_report(slug: str, api_key: str = Depends(verify_admin_api_ke
         if not original_report:
             raise ValueError(f"元のレポート情報が見つかりません: {slug}")
 
-        from src.services.report_status import add_new_report_to_status
-        
-        from src.schemas.admin_report import Prompt, ReportInput
         
         report_input = ReportInput(
             input=new_slug,
