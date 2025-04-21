@@ -45,12 +45,30 @@ def analyze_comments_in_report(report_dir: Path) -> Dict[str, float]:
     try:
         with open(input_file, 'r', encoding='utf-8') as f:
             reader = csv.reader(f)
-            next(reader, None)  # ヘッダーをスキップ
+            headers = next(reader, None)  # ヘッダー行を取得
             
-            comments = [row[0] for row in reader if row and len(row) > 0]
+            comment_col_idx = 0  # デフォルトは最初の列
+            if headers:
+                for i, header in enumerate(headers):
+                    if header.lower() in ['comment-body', 'comment', 'body', 'text', 'コメント']:
+                        comment_col_idx = i
+                        break
+            
+            comments = []
+            for row in reader:
+                if row and len(row) > comment_col_idx:
+                    comment = row[comment_col_idx].strip()
+                    if comment:  # 空のコメントは除外
+                        comments.append(comment)
+            
             comment_count = len(comments)
             
             avg_length = sum(len(comment) for comment in comments) / comment_count if comment_count > 0 else 0
+            
+            print(f"DEBUG: ファイル {input_file.name} から {comment_count} 件のコメントを読み込みました")
+            print(f"DEBUG: 合計文字数: {sum(len(comment) for comment in comments)}, 平均長: {avg_length:.1f}")
+            if comments:
+                print(f"DEBUG: 最初のコメント例: '{comments[0][:50]}...'")
                 
             return {
                 "comment_count": comment_count,
