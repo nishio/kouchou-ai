@@ -543,8 +543,39 @@ function ReportCard({
                 </Button>
               </MenuTrigger>
               <MenuContent>
-                <MenuItem value="duplicate">
-                  レポートを複製して新規作成(開発中)
+                <MenuItem 
+                  value="duplicate"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    try {
+                      if (confirm(`レポート「${report.title}」を複製して新しいレポートを作成しますか？`)) {
+                        const response = await fetch(
+                          `${process.env.NEXT_PUBLIC_API_BASEPATH}/admin/reports/${report.slug}/duplicate`,
+                          {
+                            method: "POST",
+                            headers: {
+                              "x-api-key": process.env.NEXT_PUBLIC_ADMIN_API_KEY || "",
+                              "Content-Type": "application/json",
+                            },
+                          }
+                        );
+                        
+                        if (!response.ok) {
+                          const errorData = await response.json();
+                          throw new Error(errorData.detail || "レポートの複製に失敗しました");
+                        }
+                        
+                        const data = await response.json();
+                        alert(`レポート「${data.title}」を作成しました`);
+                        window.location.reload();
+                      }
+                    } catch (error) {
+                      console.error(error);
+                      alert(`エラーが発生しました: ${error}`);
+                    }
+                  }}
+                >
+                  レポートを複製して新規作成
                 </MenuItem>
                 <MenuItem
                   value="delete"

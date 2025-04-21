@@ -1,4 +1,5 @@
 import json
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Security
 from fastapi.responses import FileResponse, ORJSONResponse
@@ -7,7 +8,7 @@ from fastapi.security.api_key import APIKeyHeader
 from src.config import settings
 from src.schemas.admin_report import ReportInput
 from src.schemas.report import Report, ReportStatus
-from src.services.report_launcher import launch_report_generation
+from src.services.report_launcher import _build_config, launch_report_generation, save_config_file
 from src.services.report_status import load_status_as_reports, set_status, toggle_report_public_state
 from src.utils.logger import setup_logger
 
@@ -113,6 +114,79 @@ async def update_report_visibility(slug: str, api_key: str = Depends(verify_admi
         is_public = toggle_report_public_state(slug)
 
         return {"success": True, "isPublic": is_public}
+    except ValueError as e:
+        slogger.error(f"ValueError: {e}", exc_info=True)
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except Exception as e:
+        slogger.error(f"Exception: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.post("/admin/reports/{slug}/duplicate")
+async def duplicate_report(slug: str, api_key: str = Depends(verify_admin_api_key)) -> dict:
+    """
+    既存のレポートを複製して新しいレポートを作成するエンドポイント。
+    設定ファイル（config）のみを複製し、中間結果は再利用しない。
+
+    Args:
+        slug: 複製元のレポートのスラッグ
+
+    Returns:
+        dict: 新しいレポートのスラッグを含む辞書
+    """
+    try:
+        config_path = settings.CONFIG_DIR / f"{slug}.json"
+        if not config_path.exists():
+            raise ValueError(f"設定ファイルが見つかりません: {config_path}")
+
+        with open(config_path) as f:
+            config = json.load(f)
+
+        new_slug = f"{slug}_copy_{uuid.uuid4().hex[:8]}"
+
+        config["name"] = new_slug
+        config["input"] = new_slug
+
+        new_config_path = settings.CONFIG_DIR / f"{new_slug}.json"
+        with open(new_config_path, "w") as f:
+            json.dump(config, f, indent=4, ensure_ascii=False)
+
+        reports = load_status_as_reports(include_deleted=True)
+        original_report = next((r for r in reports if r.slug == slug), None)
+        
+        if not original_report:
+            raise ValueError(f"元のレポート情報が見つかりません: {slug}")
+
+        from src.services.report_status import add_new_report_to_status
+        
+        from src.schemas.admin_report import Prompt, ReportInput
+        
+        report_input = ReportInput(
+            input=new_slug,
+            question=f"{original_report.title} (コピー)",
+            intro=original_report.description,
+            cluster=config.get("hierarchical_clustering", {}).get("cluster_nums", [5, 3]),
+            model=config.get("model", "gpt-4"),
+            workers=config.get("extraction", {}).get("workers", 5),
+            prompt=Prompt(
+                extraction=config.get("extraction", {}).get("prompt", ""),
+                initial_labelling=config.get("hierarchical_initial_labelling", {}).get("prompt", ""),
+                merge_labelling=config.get("hierarchical_merge_labelling", {}).get("prompt", ""),
+                overview=config.get("hierarchical_overview", {}).get("prompt", ""),
+            ),
+            comments=[],  # 空のコメントリスト
+            is_pubcom=original_report.is_pubcom,
+        )
+        
+        add_new_report_to_status(report_input)
+        set_status(new_slug, ReportStatus.READY.value)
+
+        return {
+            "success": True, 
+            "slug": new_slug,
+            "title": f"{original_report.title} (コピー)",
+            "description": original_report.description
+        }
     except ValueError as e:
         slogger.error(f"ValueError: {e}", exc_info=True)
         raise HTTPException(status_code=404, detail=str(e)) from e
