@@ -15,8 +15,15 @@ import csv
 from typing import Dict, List, Tuple, Any
 
 import sys
-sys.path.append(str(Path(__file__).parent.parent))
-from src.config import settings
+try:
+    sys.path.append(str(Path(__file__).parent.parent))
+    from src.config import settings
+    REPORT_DIR = settings.REPORT_DIR
+    INPUT_DIR = settings.INPUT_DIR
+except ImportError:
+    print("Could not import settings, using default paths...")
+    REPORT_DIR = Path(__file__).parent.parent / "data" / "reports"
+    INPUT_DIR = Path(__file__).parent.parent / "data" / "inputs"
 
 def count_comments_in_report(report_dir: Path) -> int:
     """
@@ -31,7 +38,7 @@ def count_comments_in_report(report_dir: Path) -> int:
     input_file = None
     report_slug = report_dir.name
     
-    potential_input = settings.INPUT_DIR / f"{report_slug}.csv"
+    potential_input = INPUT_DIR / f"{report_slug}.csv"
     if potential_input.exists():
         input_file = potential_input
     
@@ -122,7 +129,7 @@ def analyze_reports() -> pd.DataFrame:
     """
     report_data = []
     
-    report_dirs = [d for d in settings.REPORT_DIR.iterdir() if d.is_dir()]
+    report_dirs = [d for d in REPORT_DIR.iterdir() if d.is_dir()]
     
     for report_dir in report_dirs:
         status_file = report_dir / "hierarchical_status.json"
