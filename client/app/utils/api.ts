@@ -1,4 +1,7 @@
 export const getApiBaseUrl = () => {
+  if (process.env.NEXT_PUBLIC_OUTPUT_MODE === "export") {
+    return "."; // 相対パスを返す
+  }
   if (typeof window !== "undefined") {
     return process.env.NEXT_PUBLIC_API_BASEPATH;
   }
