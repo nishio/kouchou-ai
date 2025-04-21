@@ -64,11 +64,6 @@ def analyze_comments_in_report(report_dir: Path) -> Dict[str, float]:
             comment_count = len(comments)
             
             avg_length = sum(len(comment) for comment in comments) / comment_count if comment_count > 0 else 0
-            
-            print(f"DEBUG: ファイル {input_file.name} から {comment_count} 件のコメントを読み込みました")
-            print(f"DEBUG: 合計文字数: {sum(len(comment) for comment in comments)}, 平均長: {avg_length:.1f}")
-            if comments:
-                print(f"DEBUG: 最初のコメント例: '{comments[0][:50]}...'")
                 
             return {
                 "comment_count": comment_count,
@@ -299,9 +294,7 @@ def test_comment_analysis():
 
 def main():
     """メイン関数"""
-    test_comment_analysis()
-    
-    print("\nレポート実行時間データを分析しています...")
+    print("レポート実行時間データを分析しています...")
     
     df = analyze_reports()
     
