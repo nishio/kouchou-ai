@@ -80,12 +80,18 @@ export async function generateMetadata({
 export default async function Page({ params }: PageProps) {
   const slug = (await params).slug;
   const metaResponse = await fetch(`${getApiBaseUrl()}/meta/metadata.json`);
-  const resultResponse = await fetch(`${getApiBaseUrl()}/reports/${slug}`, {
-    headers: {
-      "x-api-key": process.env.NEXT_PUBLIC_PUBLIC_API_KEY || "",
-      "Content-Type": "application/json",
-    },
-  });
+  
+  let resultResponse;
+  if (process.env.NEXT_PUBLIC_OUTPUT_MODE === "export") {
+    resultResponse = await fetch(`${getApiBaseUrl()}/reports/${slug}.json`);
+  } else {
+    resultResponse = await fetch(`${getApiBaseUrl()}/reports/${slug}`, {
+      headers: {
+        "x-api-key": process.env.NEXT_PUBLIC_PUBLIC_API_KEY || "",
+        "Content-Type": "application/json",
+      },
+    });
+  }
 
   if (metaResponse.status === 404 || resultResponse.status === 404) {
     notFound();

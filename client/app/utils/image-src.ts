@@ -1,6 +1,6 @@
 export const getImageFromServerSrc = (src: string) => {
   if (process.env.NEXT_PUBLIC_OUTPUT_MODE === "export" && src) {
-    return src;
+    return src.startsWith("/") ? `.${src}` : src;
   }
 
   const basePath = process.env.NEXT_PUBLIC_API_BASEPATH;
