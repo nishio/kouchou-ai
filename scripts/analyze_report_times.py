@@ -43,32 +43,76 @@ def analyze_comments_in_report(report_dir: Path) -> Dict[str, float]:
         return {"comment_count": 0, "avg_comment_length": 0}
     
     try:
-        with open(input_file, 'r', encoding='utf-8') as f:
-            reader = csv.reader(f)
-            headers = next(reader, None)  # ヘッダー行を取得
-            
-            comment_col_idx = 0  # デフォルトは最初の列
-            if headers:
-                for i, header in enumerate(headers):
-                    if header.lower() in ['comment-body', 'comment', 'body', 'text', 'コメント']:
-                        comment_col_idx = i
-                        break
-            
-            comments = []
-            for row in reader:
-                if row and len(row) > comment_col_idx:
-                    comment = row[comment_col_idx].strip()
-                    if comment:  # 空のコメントは除外
-                        comments.append(comment)
-            
-            comment_count = len(comments)
-            
-            avg_length = sum(len(comment) for comment in comments) / comment_count if comment_count > 0 else 0
+        comments = []
+        
+        try:
+            with open(input_file, 'r', encoding='utf-8') as f:
+                reader = csv.reader(f, quotechar='"', doublequote=True, 
+                                   skipinitialspace=True)
+                headers = next(reader, None)  # ヘッダー行を取得
                 
-            return {
-                "comment_count": comment_count,
-                "avg_comment_length": avg_length
-            }
+                if headers:
+                    comment_col_idx = 0  # デフォルトは最初の列
+                    for i, header in enumerate(headers):
+                        if header and header.lower() in ['comment-body', 'comment', 'body', 'text', 'コメント']:
+                            comment_col_idx = i
+                            break
+                    
+                    for row in reader:
+                        if row and len(row) > comment_col_idx:
+                            comment = row[comment_col_idx].strip()
+                            if comment:  # 空のコメントは除外
+                                if comment.startswith('"') and comment.endswith('"'):
+                                    comment = comment[1:-1]
+                                comments.append(comment)
+        except Exception as e:
+            print(f"レポート {report_slug} の標準CSV形式での読み込みエラー: {e}")
+        
+        if not comments:
+            try:
+                with open(input_file, 'r', encoding='utf-8') as f:
+                    first_line = f.readline().strip()
+                    is_header = first_line.lower() in ['comment', 'コメント']
+                    
+                    f.seek(0)
+                    
+                    if is_header:
+                        next(f)
+                    
+                    for line in f:
+                        line = line.strip()
+                        if line:
+                            if line.startswith('"') and line.endswith('"'):
+                                line = line[1:-1]
+                            if line:  # 空でない場合のみ追加
+                                comments.append(line)
+            except Exception as e:
+                print(f"レポート {report_slug} の単一列形式での読み込みエラー: {e}")
+        
+        if not comments:
+            try:
+                with open(input_file, 'r', encoding='utf-8') as f:
+                    first_line = f.readline()
+                    
+                    for line in f:
+                        line = line.strip()
+                        if line:
+                            comments.append(line)
+            except Exception as e:
+                print(f"レポート {report_slug} の非CSV形式での読み込みエラー: {e}")
+        
+        comment_count = len(comments)
+        
+        if comment_count > 0:
+            total_chars = sum(len(comment) for comment in comments)
+            avg_length = total_chars / comment_count
+        else:
+            avg_length = 0
+            
+        return {
+            "comment_count": comment_count,
+            "avg_comment_length": avg_length
+        }
     except Exception as e:
         print(f"レポート {report_slug} の入力ファイル読み込みエラー: {e}")
         return {"comment_count": 0, "avg_comment_length": 0}
