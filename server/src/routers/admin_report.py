@@ -158,11 +158,10 @@ async def duplicate_report(slug: str, api_key: str = Depends(verify_admin_api_ke
 
         reports = load_status_as_reports(include_deleted=True)
         original_report = next((r for r in reports if r.slug == slug), None)
-        
+
         if not original_report:
             raise ValueError(f"元のレポート情報が見つかりません: {slug}")
 
-        
         report_input = ReportInput(
             input=new_slug,
             question=f"{original_report.title} (コピー)",
@@ -179,15 +178,15 @@ async def duplicate_report(slug: str, api_key: str = Depends(verify_admin_api_ke
             comments=[],  # 空のコメントリスト
             is_pubcom=original_report.is_pubcom,
         )
-        
+
         add_new_report_to_status(report_input)
         set_status(new_slug, ReportStatus.READY.value)
 
         return {
-            "success": True, 
+            "success": True,
             "slug": new_slug,
             "title": f"{original_report.title} (コピー)",
-            "description": original_report.description
+            "description": original_report.description,
         }
     except ValueError as e:
         slogger.error(f"ValueError: {e}", exc_info=True)
