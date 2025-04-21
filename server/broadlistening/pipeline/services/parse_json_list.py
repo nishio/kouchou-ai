@@ -55,7 +55,7 @@ def parse_response(response):
                 if "意見" in item and isinstance(item["意見"], str):
                     items.append(item["意見"].strip())
                 else:
-                    for key, value in item.items():
+                    for _key, value in item.items():
                         if isinstance(value, str) and value.strip():
                             items.append(value.strip())
                             break
@@ -93,7 +93,7 @@ def parse_response(response):
                     if "意見" in item and isinstance(item["意見"], str):
                         items.append(item["意見"].strip())
                     else:
-                        for key, value in item.items():
+                        for _key, value in item.items():
                             if isinstance(value, str) and value.strip():
                                 items.append(value.strip())
                                 break
