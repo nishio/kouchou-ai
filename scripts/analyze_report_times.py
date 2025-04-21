@@ -111,6 +111,7 @@ def analyze_comments_in_report(report_dir: Path) -> Dict[str, float]:
         
         if len(comments) == 1 and len(comments[0]) == 36:
             print(f"レポート {report_slug} に36文字の単一コメントが見つかりました - 特殊ケース")
+            return {"comment_count": 1, "avg_comment_length": 0}
         
         comment_count = len(comments)
         
