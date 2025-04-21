@@ -16,6 +16,7 @@ TEST = """Response was: 以下は、提供されたテキストの要約です�
 def parse_response(response):
     """
     指定されたレスポンス文字列からJSON配列を安全に抽出し、パースする。
+    オブジェクトリスト形式にも対応。
 
     以下はdoctestによるテスト例。
 
@@ -38,13 +39,37 @@ def parse_response(response):
 
     >>> parse_response('"a"')
     ['a']
+
+    >>> parse_response('[{"意見": "意見1"}, {"意見": "意見2"}]')
+    ['意見1', '意見2']
+
+    >>> parse_response('[{"意見": "意見1", "トピック": "トピック1"}, {"意見": "意見2", "トピック": "トピック2"}]')
+    ['意見1', '意見2']
     """
     try:
         obj = json.loads(response)
+        
+        if isinstance(obj, list) and all(isinstance(item, dict) for item in obj):
+            items = []
+            for item in obj:
+                if "意見" in item and isinstance(item["意見"], str):
+                    items.append(item["意見"].strip())
+                else:
+                    for key, value in item.items():
+                        if isinstance(value, str) and value.strip():
+                            items.append(value.strip())
+                            break
+            return items
+        
         if isinstance(obj, str):
             obj = [obj]
-        items = [a.strip() for a in obj if a.strip()]
-        return items
+            
+        if isinstance(obj, list):
+            items = [a.strip() for a in obj if a and isinstance(a, str) and a.strip()]
+            return items
+            
+        return []
+        
     except Exception:
         # 不要なコードブロックを除去
         response = response.replace("```json", "").replace("```", "")
@@ -59,19 +84,37 @@ def parse_response(response):
         # ", ]" のようなパターンを "]" に置換
         json_str = COMMA_AND_SPACE_AND_RIGHT_BRACKET.sub(r"\1", json_str)
 
-        obj = json.loads(json_str)  # ここでも例外の場合はそのまま外に投げる
-        if isinstance(obj, str):
-            obj = [obj]
         try:
-            items = [a.strip() for a in obj]
+            obj = json.loads(json_str)
+            
+            if isinstance(obj, list) and all(isinstance(item, dict) for item in obj):
+                items = []
+                for item in obj:
+                    if "意見" in item and isinstance(item["意見"], str):
+                        items.append(item["意見"].strip())
+                    else:
+                        for key, value in item.items():
+                            if isinstance(value, str) and value.strip():
+                                items.append(value.strip())
+                                break
+                return items
+            
+            if isinstance(obj, str):
+                obj = [obj]
+                
+            if isinstance(obj, list):
+                items = [a.strip() for a in obj if a and isinstance(a, str) and a.strip()]
+                return items
+                
+            return []
+            
         except Exception as e:
             print("Error:", e)
             print("Input was:", json_str)
             print("Response was:", response)
             print("JSON was:", obj)
             print("skip")
-            items = []
-        return items
+            return []
 
 
 if __name__ == "__main__":

@@ -127,13 +127,24 @@ def extract_arguments(input, prompt, model, retries=1):
         {"role": "user", "content": input},
     ]
     try:
-        response = request_to_chat_openai(messages=messages, model=model, is_json=False)
+        response = request_to_chat_openai(messages=messages, model=model, is_json=True)
         items = parse_response(response)
-        items = filter(None, items)  # omit empty strings
+        items = list(filter(None, items))  # omit empty strings and convert filter object to list
         return items
     except json.decoder.JSONDecodeError as e:
         print("JSON error:", e)
         print("Input was:", input)
         print("Response was:", response)
-        print("Silently giving up on trying to generate valid list.")
+        print("Trying to recover from invalid JSON format...")
+        
+        try:
+            if isinstance(response, str):
+                items = parse_response(response)
+                items = list(filter(None, items))
+                if items:
+                    return items
+        except Exception as inner_e:
+            print("Recovery attempt failed:", inner_e)
+        
+        print("Giving up on trying to generate valid list.")
         return []

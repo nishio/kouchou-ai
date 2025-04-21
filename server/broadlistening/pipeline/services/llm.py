@@ -91,6 +91,17 @@ def request_to_chat_openai(
     model: str = "gpt-4o",
     is_json: bool = False,
 ) -> dict:
+    """
+    LLMにリクエストを送信し、応答を取得する。
+    
+    Args:
+        messages: 会話メッセージのリスト
+        model: 使用するモデル名
+        is_json: JSON形式の応答を要求するかどうか
+        
+    Returns:
+        LLMからの応答テキスト
+    """
     use_azure = os.getenv("USE_AZURE", "false").lower()
     if use_azure == "true":
         return request_to_azure_chatcompletion(messages, is_json)
