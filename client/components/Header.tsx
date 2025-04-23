@@ -2,6 +2,7 @@
 
 import { getImageFromServerSrc } from "@/app/utils/image-src";
 import { BroadlisteningGuide } from "@/components/report/BroadlisteningGuide";
+import { TerminologyGuide } from "@/components/report/TerminologyGuide";
 import type { Meta } from "@/type";
 import { HStack, Image } from "@chakra-ui/react";
 
@@ -24,7 +25,10 @@ export function Header({ meta }: Props) {
           />
         )}
       </HStack>
-      <BroadlisteningGuide />
+      <HStack>
+        <TerminologyGuide />
+        <BroadlisteningGuide />
+      </HStack>
     </HStack>
   );
 }
