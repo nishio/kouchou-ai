@@ -1,10 +1,9 @@
 import json
-import os
 import shutil
 import subprocess
 import threading
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any
 
 import pandas as pd
 
@@ -127,7 +126,7 @@ def copy_intermediate_results(source_slug: str, target_slug: str) -> None:
     if not target_dir.exists():
         target_dir.mkdir(parents=True, exist_ok=True)
 
-    for step, files in STEP_OUTPUT_FILES.items():
+    for _step, files in STEP_OUTPUT_FILES.items():
         for file in files:
             source_file = source_dir / file
             if source_file.exists():

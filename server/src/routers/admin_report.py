@@ -177,7 +177,6 @@ async def duplicate_report(
     try:
         import uuid
         from src.schemas.admin_report import Prompt, ReportDuplicationOptions
-        from src.services.report_status import add_new_report_to_status
 
         config_path = settings.CONFIG_DIR / f"{slug}.json"
         if not config_path.exists():

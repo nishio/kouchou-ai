@@ -1,4 +1,4 @@
-from typing import Literal, Optional
+from typing import Literal
 
 from src.schemas.base import SchemaBaseModel
 
@@ -23,7 +23,7 @@ class Prompt(SchemaBaseModel):
 class ReportDuplicationOptions(SchemaBaseModel):
     """レポート複製時のオプション"""
     reuse_intermediate_results: bool = False  # 中間結果を再利用するかどうか
-    source_slug: Optional[str] = None  # 複製元のレポートスラッグ
+    source_slug: str | None = None  # 複製元のレポートスラッグ
 
 
 class ReportInput(SchemaBaseModel):
@@ -37,7 +37,7 @@ class ReportInput(SchemaBaseModel):
     comments: list[Comment]  # コメントのリスト
     is_pubcom: bool = False  # CSV出力モード出力フラグ
     inputType: Literal["file", "spreadsheet"] = "file"  # 入力タイプ
-    duplication_options: Optional[ReportDuplicationOptions] = None  # 複製オプション
+    duplication_options: ReportDuplicationOptions | None = None  # 複製オプション
 
 
 class ReportMetadataUpdate(SchemaBaseModel):
