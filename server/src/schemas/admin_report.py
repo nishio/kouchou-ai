@@ -22,6 +22,7 @@ class Prompt(SchemaBaseModel):
 
 class ReportDuplicationOptions(SchemaBaseModel):
     """レポート複製時のオプション"""
+
     reuse_intermediate_results: bool = False  # 中間結果を再利用するかどうか
     source_slug: str | None = None  # 複製元のレポートスラッグ
 

@@ -137,16 +137,16 @@ def copy_intermediate_results(source_slug: str, target_slug: str) -> None:
     source_status_file = source_dir / "hierarchical_status.json"
     if source_status_file.exists():
         target_status_file = target_dir / "hierarchical_status.json"
-        
+
         # ステータスファイルの内容を読み込み、必要な情報を更新
         with open(source_status_file) as f:
             status_data = json.load(f)
-        
+
         status_data["name"] = target_slug
         status_data["input"] = target_slug
         status_data["output_dir"] = target_slug
         status_data["status"] = "completed"  # 中間結果を再利用する場合は完了状態とする
-        
+
         with open(target_status_file, "w") as f:
             json.dump(status_data, f, indent=4, ensure_ascii=False)
 
@@ -189,11 +189,12 @@ def launch_report_generation(report_input: ReportInput) -> None:
     try:
         add_new_report_to_status(report_input)
         config_path = save_config_file(report_input)
-        
-        if (report_input.duplication_options and 
-            report_input.duplication_options.reuse_intermediate_results and 
-            report_input.duplication_options.source_slug):
-            
+
+        if (
+            report_input.duplication_options
+            and report_input.duplication_options.reuse_intermediate_results
+            and report_input.duplication_options.source_slug
+        ):
             source_slug = report_input.duplication_options.source_slug
             target_slug = report_input.input
             
@@ -205,25 +206,25 @@ def launch_report_generation(report_input: ReportInput) -> None:
             else:
                 save_input_file(report_input)
                 logger.warning(f"Source input file {source_input_path} not found, creating new input file")
-            
+
             copy_intermediate_results(source_slug, target_slug)
-            
+
             set_status(target_slug, "ready")
-            
+
             logger.info(f"Syncing files for {target_slug} to storage")
             report_sync_service = ReportSyncService()
             report_sync_service.sync_report_files_to_storage(target_slug)
             report_sync_service.sync_input_file_to_storage(target_slug)
             report_sync_service.sync_config_file_to_storage(target_slug)
             report_sync_service.sync_status_file_to_storage()
-            
+
         else:
             save_input_file(report_input)
             cmd = ["python", "hierarchical_main.py", config_path, "--skip-interaction", "--without-html"]
             execution_dir = settings.TOOL_DIR / "pipeline"
             process = subprocess.Popen(cmd, cwd=execution_dir)
             threading.Thread(target=_monitor_process, args=(process, report_input.input), daemon=True).start()
-            
+
     except Exception as e:
         set_status(report_input.input, "error")
         logger.error(f"Error launching report generation: {e}")
