@@ -1,0 +1,14 @@
+{
+  "name": "Embedding前処理実験",
+  "question": "大量のコメントデータを効率的に処理するための前処理実験",
+  "input": "example-polis",
+  "model": "text-embedding-3-small",
+  "extraction": {
+    "workers": 3,
+    "limit": 200
+  },
+  "hierarchical_clustering": {
+    "cluster_nums": [3, 6, 12, 24]
+  },
+  "intro": "このAI生成レポートは、embeddingベースの前処理実験のためのものです。"
+}
