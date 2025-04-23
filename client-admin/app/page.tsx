@@ -559,8 +559,46 @@ function ReportCard({
                 </Button>
               </MenuTrigger>
               <MenuContent>
-                <MenuItem value="duplicate">
-                  レポートを複製して新規作成(開発中)
+                <MenuItem 
+                  value="duplicate"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    try {
+                      const reuseOption = confirm(
+                        `レポート「${report.title}」を複製します。\n\n中間結果を再利用しますか？\n\n「OK」：中間結果を再利用（処理時間とコスト削減）\n「キャンセル」：すべて再処理（より正確な結果）`
+                      );
+                      
+                      if (!confirm(`レポート「${report.title}」を複製して新しいレポートを作成しますか？`)) {
+                        return;
+                      }
+                      
+                      const response = await fetch(
+                        `${process.env.NEXT_PUBLIC_API_BASEPATH}/admin/reports/${report.slug}/duplicate?reuse_intermediate_results=${reuseOption}`,
+                        {
+                          method: "POST",
+                          headers: {
+                            "x-api-key": process.env.NEXT_PUBLIC_ADMIN_API_KEY || "",
+                            "Content-Type": "application/json",
+                          },
+                        }
+                      );
+                      
+                      if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || "レポートの複製に失敗しました");
+                      }
+                      
+                      const data = await response.json();
+                      const reuseText = data.reuse_intermediate_results ? "（中間結果再利用）" : "";
+                      alert(`レポート「${data.title}${reuseText}」を作成しました`);
+                      window.location.reload();
+                    } catch (error) {
+                      console.error(error);
+                      alert(`エラーが発生しました: ${error}`);
+                    }
+                  }}
+                >
+                  レポートを複製して新規作成
                 </MenuItem>
                 <MenuItem
                   value="edit"

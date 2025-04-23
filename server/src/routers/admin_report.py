@@ -156,3 +156,88 @@ async def update_report_metadata_endpoint(
     except Exception as e:
         slogger.error(f"Exception: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.post("/admin/reports/{slug}/duplicate")
+async def duplicate_report(
+    slug: str, reuse_intermediate_results: bool = False, api_key: str = Depends(verify_admin_api_key)
+) -> dict:
+    """
+    既存のレポートを複製して新しいレポートを作成するエンドポイント。
+    中間結果の再利用オプションを指定することで、処理時間とコストを削減できる。
+
+    Args:
+        slug: 複製元のレポートのスラッグ
+        reuse_intermediate_results: 中間結果を再利用するかどうか（デフォルト: False）
+        api_key: 管理者APIキー
+
+    Returns:
+        dict: 新しいレポートのスラッグを含む辞書
+    """
+    try:
+        import uuid
+        from src.schemas.admin_report import Prompt, ReportDuplicationOptions
+        from src.services.report_status import add_new_report_to_status
+
+        config_path = settings.CONFIG_DIR / f"{slug}.json"
+        if not config_path.exists():
+            raise ValueError(f"設定ファイルが見つかりません: {config_path}")
+
+        with open(config_path) as f:
+            config = json.load(f)
+
+        new_slug = f"{slug}_copy_{uuid.uuid4().hex[:8]}"
+
+        config["name"] = new_slug
+        config["input"] = new_slug
+
+        new_config_path = settings.CONFIG_DIR / f"{new_slug}.json"
+        with open(new_config_path, "w") as f:
+            json.dump(config, f, indent=4, ensure_ascii=False)
+
+        reports = load_status_as_reports(include_deleted=True)
+        original_report = next((r for r in reports if r.slug == slug), None)
+
+        if not original_report:
+            raise ValueError(f"元のレポート情報が見つかりません: {slug}")
+
+        duplication_options = None
+        if reuse_intermediate_results:
+            duplication_options = ReportDuplicationOptions(
+                reuse_intermediate_results=True,
+                source_slug=slug,
+            )
+
+        report_input = ReportInput(
+            input=new_slug,
+            question=f"{original_report.title} (コピー)",
+            intro=original_report.description,
+            cluster=config.get("hierarchical_clustering", {}).get("cluster_nums", [5, 3]),
+            model=config.get("model", "gpt-4"),
+            workers=config.get("extraction", {}).get("workers", 5),
+            prompt=Prompt(
+                extraction=config.get("extraction", {}).get("prompt", ""),
+                initial_labelling=config.get("hierarchical_initial_labelling", {}).get("prompt", ""),
+                merge_labelling=config.get("hierarchical_merge_labelling", {}).get("prompt", ""),
+                overview=config.get("hierarchical_overview", {}).get("prompt", ""),
+            ),
+            comments=[],  # 空のコメントリスト
+            is_pubcom=original_report.is_pubcom,
+            duplication_options=duplication_options,
+        )
+
+        launch_report_generation(report_input)
+
+        return {
+            "success": True,
+            "slug": new_slug,
+            "title": f"{original_report.title} (コピー)",
+            "description": original_report.description,
+            "reuse_intermediate_results": reuse_intermediate_results,
+        }
+    except ValueError as e:
+        slogger.error(f"ValueError: {e}", exc_info=True)
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except Exception as e:
+        slogger.error(f"Exception: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error") from e
