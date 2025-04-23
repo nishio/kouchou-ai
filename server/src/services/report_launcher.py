@@ -197,7 +197,6 @@ def launch_report_generation(report_input: ReportInput) -> None:
         ):
             source_slug = report_input.duplication_options.source_slug
             target_slug = report_input.input
-            
             source_input_path = settings.INPUT_DIR / f"{source_slug}.csv"
             target_input_path = settings.INPUT_DIR / f"{target_slug}.csv"
             if source_input_path.exists():
