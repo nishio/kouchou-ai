@@ -103,7 +103,7 @@ def reduce_duplicates(
             'comment': central_comment['comment'],
             'source': central_comment.get('source', None),
             'url': central_comment.get('url', None),
-            'cluster_id': cluster_id,
+            'cluster_id': int(cluster_id),  # numpy.int64をPythonのintに変換
             'cluster_size': len(indices)
         })
         
@@ -111,10 +111,10 @@ def reduce_duplicates(
             dist_to_center = cosine(embeddings[idx], embeddings[center_idx])
             result_table.append({
                 'id': valid_comments[idx]['id'],
-                'cluster_id': cluster_id,
-                'distance_to_center': dist_to_center,
+                'cluster_id': int(cluster_id),  # numpy.int64をPythonのintに変換
+                'distance_to_center': float(dist_to_center),  # numpy.float64をPythonのfloatに変換
                 'comment': valid_comments[idx]['comment'],
-                'is_center': idx == center_idx
+                'is_center': bool(idx == center_idx)  # numpy.boolをPythonのboolに変換
             })
     
     central_comments = sorted(central_comments, key=lambda x: x['cluster_size'], reverse=True)
@@ -161,7 +161,7 @@ def load_comments_from_csv(csv_path: str, comment_col: str, id_col: Optional[str
         try:
             df = pd.read_csv(csv_path, encoding='cp932')
         except:
-            df = pd.read_csv(csv_path, encoding='utf-8', errors="ignore")
+            df = pd.read_csv(csv_path, encoding='utf-8', on_bad_lines='skip')
     
     if comment_col not in df.columns:
         raise ValueError(f"Column '{comment_col}' not found in CSV file. Available columns: {df.columns.tolist()}")
