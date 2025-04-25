@@ -6,9 +6,17 @@ type Props = {
   clusterList: Cluster[];
   argumentList: Argument[];
   onHover?: () => void;
+  level: string;
+  onTreeZoom: (level: string) => void;
 };
 
-export function TreemapChart({ clusterList, argumentList, onHover }: Props) {
+export function TreemapChart({
+  clusterList,
+  argumentList,
+  onHover,
+  level,
+  onTreeZoom,
+}: Props) {
   const convertedArgumentList = argumentList.map(convertArgumentToCluster);
   const list = [
     { ...clusterList[0], parent: "" },
@@ -16,7 +24,11 @@ export function TreemapChart({ clusterList, argumentList, onHover }: Props) {
     ...convertedArgumentList,
   ];
   const ids = list.map((node) => node.id);
-  const labels = list.map((node) => node.label.replace(/(.{15})/g, "$1<br />"));
+  const labels = list.map((node) => {
+    return node.id === level
+      ? node.label.replace(/(.{50})/g, "$1<br />")
+      : node.label.replace(/(.{15})/g, "$1<br />");
+  });
   const parents = list.map((node) => node.parent);
   const values = list.map((node) => node.value);
   const customdata = list.map((node) =>
@@ -31,6 +43,7 @@ export function TreemapChart({ clusterList, argumentList, onHover }: Props) {
     parents: parents,
     values: values,
     customdata: customdata,
+    level: level,
     branchvalues: "total",
     hovertemplate: "%{customdata}<extra></extra>",
     hoverlabel: {
@@ -70,7 +83,19 @@ export function TreemapChart({ clusterList, argumentList, onHover }: Props) {
         displayModeBar: false,
         locale: "ja",
       }}
-      onHover={onHover}
+      onUpdate={darkenPathbar}
+      onUnhover={darkenPathbar}
+      onHover={() => {
+        onHover ? onHover() : null;
+        darkenPathbar();
+      }}
+      onClick={(event) => {
+        const clickedNode = event.points[0];
+        const newLevel =
+          clickedNode.data.ids[clickedNode.pointNumber]?.toString() || "0";
+        onTreeZoom(newLevel);
+        // 元々のクリックイベントはキャンセルされるので無限ループにはならない
+      }}
     />
   );
 }
@@ -85,4 +110,33 @@ function convertArgumentToCluster(argument: Argument): Cluster {
     parent: argument.cluster_ids[2],
     density_rank_percentile: 0,
   };
+}
+
+function darkenPathbar() {
+  const panels = document.querySelectorAll(".treemap > .slice > .surface");
+  const leafColor = getColor(panels[panels.length - 1]);
+  if (panels.length > 1) darkenColor(panels[0], leafColor);
+  const pathbars = document.querySelectorAll(".treemap > .pathbar > .surface");
+  for (const pathbar of pathbars) darkenColor(pathbar, leafColor);
+}
+
+function getColor(elem: Element) {
+  return elem.computedStyleMap().get("fill")?.toString() || "";
+}
+
+function darkenColor(elem: Element, originalColor: string) {
+  if (getColor(elem) !== originalColor) return;
+  const darkenedColor = originalColor.replace(
+    /rgb\((\d+), (\d+), (\d+)\)/,
+    (match, r, g, b) => `rgb(${dark(r)}, ${dark(g)}, ${dark(b)})`,
+  );
+  const newStyle =
+    elem.attributes
+      .getNamedItem("style")
+      ?.value.replace(originalColor, darkenedColor) || "";
+  elem.setAttribute("style", newStyle);
+}
+
+function dark(rgb: string) {
+  return Math.max(0, Number.parseInt(rgb) - 30);
 }

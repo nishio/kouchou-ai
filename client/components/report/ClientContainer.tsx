@@ -2,7 +2,7 @@
 
 import { SelectChartButton } from "@/components/charts/SelectChartButton";
 import { Chart } from "@/components/report/Chart";
-import { DensityFilterSettingDialog } from "@/components/report/DensityFilterSettingDialog";
+import { DisplaySettingDialog } from "@/components/report/DisplaySettingDialog";
 import type { Cluster, Result } from "@/type";
 import { useEffect, useState } from "react";
 
@@ -19,6 +19,8 @@ export function ClientContainer({ result }: Props) {
   const [minValue, setMinValue] = useState(5);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDenseGroupEnabled, setIsDenseGroupEnabled] = useState(true);
+  const [showClusterLabels, setShowClusterLabels] = useState(true);
+  const [treemapLevel, setTreemapLevel] = useState("0");
 
   // maxDensityやminValueが変化するたびに密度フィルターの結果をチェック
   useEffect(() => {
@@ -54,13 +56,15 @@ export function ClientContainer({ result }: Props) {
   return (
     <>
       {openDensityFilterSetting && (
-        <DensityFilterSettingDialog
+        <DisplaySettingDialog
           currentMaxDensity={maxDensity}
           currentMinValue={minValue}
           onClose={() => {
             setOpenDensityFilterSetting(false);
           }}
           onChangeFilter={onChangeDensityFilter}
+          showClusterLabels={showClusterLabels}
+          onToggleClusterLabels={setShowClusterLabels}
         />
       )}
       <SelectChartButton
@@ -89,6 +93,10 @@ export function ClientContainer({ result }: Props) {
         onExitFullscreen={() => {
           setIsFullscreen(false);
         }}
+        showClusterLabels={showClusterLabels}
+        onToggleClusterLabels={setShowClusterLabels}
+        treemapLevel={treemapLevel}
+        onTreeZoom={setTreemapLevel}
       />
     </>
   );
@@ -115,11 +123,11 @@ function getDenseClusters(
     `Total clusters at deepest level (${deepestLevel}): ${deepestLevelClusters.length}`,
   );
 
-  deepestLevelClusters.forEach((cluster) => {
+  for (const cluster of deepestLevelClusters) {
     console.log(
       `Cluster ID: ${cluster.id}, Label: ${cluster.label}, Density: ${cluster.density_rank_percentile}, Elements: ${cluster.value}`,
     );
-  });
+  }
 
   const filteredDeepestLevelClusters = deepestLevelClusters
     .filter((c) => c.density_rank_percentile <= maxDensity)

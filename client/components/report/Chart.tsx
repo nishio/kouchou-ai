@@ -2,14 +2,18 @@ import { ScatterChart } from "@/components/charts/ScatterChart";
 import { TreemapChart } from "@/components/charts/TreemapChart";
 import { Tooltip } from "@/components/ui/tooltip";
 import type { Result } from "@/type";
-import { Box, Button, Icon } from "@chakra-ui/react";
-import { Undo2Icon } from "lucide-react";
+import { Box, Button, HStack, Icon } from "@chakra-ui/react";
+import { Minimize2 } from "lucide-react";
 
 type ReportProps = {
   result: Result;
   selectedChart: string;
   isFullscreen: boolean;
   onExitFullscreen: () => void;
+  showClusterLabels: boolean;
+  onToggleClusterLabels: (show: boolean) => void;
+  treemapLevel: string;
+  onTreeZoom: (level: string) => void;
 };
 
 export function Chart({
@@ -17,6 +21,10 @@ export function Chart({
   selectedChart,
   isFullscreen,
   onExitFullscreen,
+  showClusterLabels,
+  onToggleClusterLabels,
+  treemapLevel,
+  onTreeZoom,
 }: ReportProps) {
   if (isFullscreen) {
     return (
@@ -31,22 +39,21 @@ export function Chart({
         bgColor={"#fff"}
         zIndex={1000}
       >
-        <Tooltip content={"全画面終了"} openDelay={0} closeDelay={0}>
-          <Button
-            id={"shrinkButton"}
-            onClick={onExitFullscreen}
-            h={"50px"}
-            position={"fixed"}
-            top={5}
-            right={5}
-            zIndex={1}
-            borderWidth={2}
-          >
-            <Icon>
-              <Undo2Icon />
-            </Icon>
-          </Button>
-        </Tooltip>
+        <HStack
+          id={"fullScreenButtons"}
+          position={"fixed"}
+          top={5}
+          right={5}
+          zIndex={1}
+        >
+          <Tooltip content={"全画面終了"} openDelay={0} closeDelay={0}>
+            <Button onClick={onExitFullscreen} h={"50px"} borderWidth={2}>
+              <Icon>
+                <Minimize2 />
+              </Icon>
+            </Button>
+          </Tooltip>
+        </HStack>
         {(selectedChart === "scatterAll" ||
           selectedChart === "scatterDensity") && (
           <ScatterChart
@@ -58,13 +65,17 @@ export function Chart({
                 : Math.max(...result.clusters.map((c) => c.level))
             }
             onHover={() => setTimeout(avoidHoverTextCoveringShrinkButton, 500)}
+            showClusterLabels={showClusterLabels}
           />
         )}
         {selectedChart === "treemap" && (
           <TreemapChart
+            key={treemapLevel}
             clusterList={result.clusters}
             argumentList={result.arguments}
             onHover={avoidHoverTextCoveringShrinkButton}
+            level={treemapLevel}
+            onTreeZoom={onTreeZoom}
           />
         )}
       </Box>
@@ -76,8 +87,11 @@ export function Chart({
       <Box h={"500px"} mb={5}>
         {selectedChart === "treemap" && (
           <TreemapChart
+            key={treemapLevel}
             clusterList={result.clusters}
             argumentList={result.arguments}
+            level={treemapLevel}
+            onTreeZoom={onTreeZoom}
           />
         )}
         {(selectedChart === "scatterAll" ||
@@ -90,6 +104,7 @@ export function Chart({
                 ? 1
                 : Math.max(...result.clusters.map((c) => c.level))
             }
+            showClusterLabels={showClusterLabels}
           />
         )}
       </Box>
@@ -102,7 +117,7 @@ export function Chart({
  */
 function avoidHoverTextCoveringShrinkButton(): void {
   const hoverlayer = document.querySelector(".hoverlayer");
-  const shrinkButton = document.getElementById("shrinkButton");
+  const shrinkButton = document.getElementById("fullScreenButtons");
   if (!hoverlayer || !shrinkButton) return;
   const hoverPos = hoverlayer.getBoundingClientRect();
   const btnPos = shrinkButton.getBoundingClientRect();

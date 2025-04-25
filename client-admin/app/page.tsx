@@ -8,21 +8,27 @@ import {
   MenuRoot,
   MenuTrigger,
 } from "@/components/ui/menu";
+import { toaster } from "@/components/ui/toaster";
 import { Tooltip } from "@/components/ui/tooltip";
 import type { Report } from "@/type";
 import {
   Box,
   Button,
   Card,
+  Dialog,
   Flex,
   HStack,
   Heading,
   Icon,
+  Input,
+  LinkBox,
+  LinkOverlay,
   Popover,
   Portal,
   Spinner,
   Steps,
   Text,
+  Textarea,
   VStack
 } from "@chakra-ui/react";
 import {
@@ -218,6 +224,11 @@ function ReportCard({
         : stepKeys.indexOf(progress);
 
   const [lastProgress, setLastProgress] = useState<string | null>(null);
+  
+  // 編集ダイアログの状態管理
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState(report.title);
+  const [editDescription, setEditDescription] = useState(report.description || "");
 
   // エラー状態の判定
   const isErrorState = progress === "error" || report.status === "error";
@@ -241,8 +252,7 @@ function ReportCard({
     }
   }, [progress, lastProgress, reports, setReports, report.slug]);
   return (
-    <Card.Root
-      size="md"
+    <LinkBox as={Card.Root}
       key={report.slug}
       mb={4}
       borderLeftWidth={10}
@@ -250,14 +260,16 @@ function ReportCard({
       position="relative"
       transition="all 0.2s"
       role="group"
-      _hover={report.status === "ready" ? {
+      pointerEvents={isEditDialogOpen ? "none" : "auto"}
+      _hover={report.status === "ready" && !isEditDialogOpen ? {
         backgroundColor: "gray.50",
         cursor: "pointer",
       } : {}}
-      onClick={() => {
+      onClick={(e) => {
         if (report.status === "ready") {
           window.open(`${process.env.NEXT_PUBLIC_CLIENT_BASEPATH}/${report.slug}`, "_blank");
         }
+        return true;
       }}
     >
       <Card.Body>
@@ -271,11 +283,15 @@ function ReportCard({
               )}
             </Box>
             <Box>
-              <Card.Title>
-                <Text fontSize="md" color={isErrorState ? "red.600" : statusDisplay.textColor}>
+              <LinkOverlay
+                href={`/${report.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Text fontSize="md" fontWeight="bold" color={isErrorState ? "red.600" : statusDisplay.textColor}>
                   {report.title}
                 </Text>
-              </Card.Title>
+              </LinkOverlay>
               <Card.Description>
                 {`${process.env.NEXT_PUBLIC_CLIENT_BASEPATH}/${report.slug}`}
               </Card.Description>
@@ -351,7 +367,7 @@ function ReportCard({
               display="flex"
               alignItems="center"
               justifyContent="center"
-              backgroundColor="rgba(0, 0, 0, 0.05)"
+              backgroundColor="blackAlpha.100"
               opacity="0"
               transition="opacity 0.2s"
               _hover={{ opacity: 1 }}
@@ -547,6 +563,17 @@ function ReportCard({
                   レポートを複製して新規作成(開発中)
                 </MenuItem>
                 <MenuItem
+                  value="edit"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditTitle(report.title);
+                    setEditDescription(report.description || "");
+                    setIsEditDialogOpen(true);
+                  }}
+                >
+                  レポートを編集する
+                </MenuItem>
+                <MenuItem
                   value="delete"
                   color="fg.error"
                   onClick={async (e) => {
@@ -588,7 +615,175 @@ function ReportCard({
           </HStack>
         </HStack>
       </Card.Body>
-    </Card.Root>
+      
+      <Dialog.Root
+        open={isEditDialogOpen}
+        onOpenChange={({ open }) => setIsEditDialogOpen(open)}
+        modal={true}
+        closeOnInteractOutside={true}
+        trapFocus={true}
+      >
+        <Portal>
+          <Dialog.Backdrop
+            zIndex={1000}
+            position="fixed"
+            inset={0}
+            backgroundColor="blackAlpha.100"
+            backdropFilter="blur(2px)"
+          />
+          <Dialog.Positioner>
+            <Dialog.Content
+              pointerEvents="auto"
+              position="relative"
+              zIndex={1001}
+              boxShadow="md"
+              onClick={e => e.stopPropagation()}
+            >
+              <Dialog.CloseTrigger position="absolute" top={3} right={3} />
+              <Dialog.Header>
+                <Dialog.Title>レポートを編集</Dialog.Title>
+              </Dialog.Header>
+              <Dialog.Body>
+                <VStack gap={4} align="stretch">
+                  <Box>
+                    <Text mb={2} fontWeight="bold">タイトル</Text>
+                    <Input
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      placeholder="レポートのタイトルを入力"
+                    />
+                  </Box>
+                  <Box>
+                    <Text mb={2} fontWeight="bold">調査概要</Text>
+                    <Textarea
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      placeholder="調査の概要を入力"
+                    />
+                  </Box>
+                </VStack>
+              </Dialog.Body>
+              <Dialog.Footer>
+                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                  キャンセル
+                </Button>
+                <Button
+                  ml={3}
+                  onClick={async () => {
+                    try {
+                      const response = await fetch(
+                        `${getApiBaseUrl()}/admin/reports/${report.slug}/metadata`,
+                        {
+                          method: "PATCH",
+                          headers: {
+                            "x-api-key": process.env.NEXT_PUBLIC_ADMIN_API_KEY || "",
+                            "Content-Type": "application/json",
+                          },
+                          body: JSON.stringify({
+                            title: editTitle,
+                            description: editDescription,
+                          }),
+                        }
+                      );
+
+                      if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || "メタデータの更新に失敗しました");
+                      }
+
+                      // レポート一覧を更新
+                      if (setReports && reports) {
+                        const updatedReports = reports.map((r) =>
+                          r.slug === report.slug
+                            ? { ...r, title: editTitle, description: editDescription }
+                            : r
+                        );
+                        setReports(updatedReports);
+                      }
+
+                      // 成功メッセージを表示
+                      toaster.create({
+                        type: "success",
+                        title: "更新完了",
+                        description: "レポート情報が更新されました",
+                      });
+
+                      // ダイアログを閉じる
+                      setIsEditDialogOpen(false);
+                    } catch (error) {
+                      console.error("メタデータの更新に失敗しました:", error);
+                      toaster.create({
+                        type: "error",
+                        title: "更新エラー",
+                        description: "メタデータの更新に失敗しました",
+                      });
+                    }
+                  }}
+                >
+                  保存
+                </Button>
+              </Dialog.Footer>
+            </Dialog.Content>
+          </Dialog.Positioner>
+        </Portal>
+      </Dialog.Root>
+    </LinkBox>
+  );
+}
+
+function DownloadBuildButton() {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleDownload = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/download");
+
+      if (!res.ok) {
+        throw new Error("ビルドに失敗しました");
+      }
+
+      const blob = await res.blob();
+      const contentDisposition = res.headers.get("Content-Disposition");
+      const match = contentDisposition?.match(/filename="?(.+)"?/);
+      const filename = match?.[1] ?? "kouchou-ai.zip";
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+      toaster.create({
+        type: "success",
+        duration: 5000,
+        title: "エクスポート完了",
+        description: "ダウンロードフォルダに保存されました。",
+      });
+    } catch (error) {
+      toaster.create({
+        type: "error",
+        duration: 5000,
+        title: "エクスポート失敗",
+        description: "問題が解決しない場合は、管理者に問い合わせてください。",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Button
+      size="xl"
+      onClick={handleDownload}
+      loading={isLoading}
+      loadingText="エクスポート中"
+    >
+      全レポートをエクスポート
+    </Button>
   );
 }
 
@@ -646,6 +841,7 @@ export default function Page() {
           <Link href="/create">
             <Button size="xl">新しいレポートを作成する</Button>
           </Link>
+          <DownloadBuildButton />
         </HStack>
       </Box>
     </div>
