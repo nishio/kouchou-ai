@@ -41,6 +41,7 @@ import {
   MessagesSquareIcon,
 } from "lucide-react";
 import { useState } from "react";
+import { TermTooltip } from "./TermTooltip";
 
 type ReportProps = {
   result: Result;
@@ -192,7 +193,7 @@ export function Analysis({ result }: ReportProps) {
                           })
                         }
                       >
-                        プロンプト
+                        <TermTooltip term="プロンプト">プロンプト</TermTooltip>
                       </Button>
                     </HStack>
                   </TimelineContent>
@@ -200,10 +201,10 @@ export function Analysis({ result }: ReportProps) {
                 {p.step === "embedding" && (
                   <TimelineContent>
                     <TimelineTitle fontWeight={"bold"}>
-                      埋め込み ({result.config.embedding.model})
+                      <TermTooltip term="埋め込み">埋め込み</TermTooltip> ({result.config.embedding.model})
                     </TimelineTitle>
                     <TimelineDescription>
-                      抽出された意見に対して埋め込み（ベクトル表現）を生成するステップです。
+                      抽出された意見に対して<TermTooltip term="埋め込み">埋め込み</TermTooltip>（ベクトル表現）を生成するステップです。
                       <br />
                       これにより、意見の内容を数値ベクトルとして表現します。
                     </TimelineDescription>
@@ -226,10 +227,10 @@ export function Analysis({ result }: ReportProps) {
                 {p.step === "hierarchical_clustering" && (
                   <TimelineContent>
                     <TimelineTitle fontWeight={"bold"}>
-                      クラスタリング
+                      <TermTooltip term="濃いクラスタ">クラスタリング</TermTooltip>
                     </TimelineTitle>
                     <TimelineDescription>
-                      埋め込みベクトルの値に基づいて意見の階層クラスタリングを行うステップです。
+                      <TermTooltip term="埋め込み">埋め込み</TermTooltip>ベクトルの値に基づいて意見の階層クラスタリングを行うステップです。
                       <br />
                     </TimelineDescription>
                     <HStack>
@@ -256,7 +257,7 @@ export function Analysis({ result }: ReportProps) {
                       {result.config.hierarchical_initial_labelling.model})
                     </TimelineTitle>
                     <TimelineDescription>
-                      クラスタリングの結果に対して、各クラスタに適切なタイトル・説明文を生成（ラベリング）するステップです。
+                      クラスタリングの結果に対して、各<TermTooltip term="濃いクラスタ">クラスタ</TermTooltip>に適切なタイトル・説明文を生成（ラベリング）するステップです。
                       <br />
                       このステップでは、最も細かい粒度のクラスタ（最下層のクラスタ）に対して、各クラスタに属する意見に基づいてクラスタのタイトルと説明文を生成します。
                     </TimelineDescription>
@@ -285,7 +286,7 @@ export function Analysis({ result }: ReportProps) {
                           })
                         }
                       >
-                        プロンプト
+                        <TermTooltip term="プロンプト">プロンプト</TermTooltip>
                       </Button>
                     </HStack>
                   </TimelineContent>
@@ -326,7 +327,7 @@ export function Analysis({ result }: ReportProps) {
                           })
                         }
                       >
-                        プロンプト
+                        <TermTooltip term="プロンプト">プロンプト</TermTooltip>
                       </Button>
                     </HStack>
                   </TimelineContent>
@@ -365,7 +366,7 @@ export function Analysis({ result }: ReportProps) {
                           })
                         }
                       >
-                        プロンプト
+                        <TermTooltip term="プロンプト">プロンプト</TermTooltip>
                       </Button>
                     </HStack>
                   </TimelineContent>
