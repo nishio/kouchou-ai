@@ -1,4 +1,6 @@
-@echo on
+@echo off
+chcp 65001 >nul
+
 echo Kouchou-AI Setup Tool
 echo =====================
 
@@ -23,13 +25,30 @@ set /p GEMINI_API_KEY=Enter your Gemini API key:
 
 REM Validate OpenAI API key format
 echo APIキーの形式を確認しています...
-echo %OPENAI_API_KEY% | findstr /r "^sk-" > nul
-if %errorlevel% neq 0 (
-  echo 警告: 入力されたAPIキーの形式が正しくない可能性があります。
-  echo 通常、OpenAI APIキーは「sk-」で始まります。
-  echo 続行しますか？ (Y/N)
-  set /p CONTINUE=
-  if /i "%CONTINUE%" neq "Y" (
+set "HAS_ERROR="
+
+REM OpenAI: 入力があるときだけチェック
+if defined OPENAI_API_KEY (
+  echo %OPENAI_API_KEY% | findstr /R /C:"^sk-" >nul
+  if errorlevel 1 (
+    echo 警告: 入力されたOpenAI APIキーの形式が正しくない可能性があります。通常は「sk-」で始まります。
+    set "HAS_ERROR=1"
+  )
+)
+
+REM Gemini: 入力があるときだけチェック
+if defined GEMINI_API_KEY (
+  echo %GEMINI_API_KEY% | findstr /R /C:"^AIza" >nul
+  if errorlevel 1 (
+    echo 警告: 入力されたGemini APIキーの形式が正しくない可能性があります。通常は「AIza」で始まります。
+    set "HAS_ERROR=1"
+  )
+)
+
+REM どちらか不正なら継続確認
+if defined HAS_ERROR (
+  choice /c YN /n /m "続行しますか？ (Y/N): "
+  if errorlevel 2 (
     echo セットアップを中止します。正しいAPIキーを用意してから再度実行してください。
     pause
     exit /b
