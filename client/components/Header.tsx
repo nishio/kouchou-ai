@@ -7,7 +7,7 @@ import { GlobalNavigation } from "./globalNavigation/GlobalNavigation";
 export function Header() {
   const logoSrc = useBreakpointValue({
     base: getImageFromServerSrc("/images/logo-sp.svg"),
-    md: getImageFromServerSrc("/images/logo.svg")
+    md: getImageFromServerSrc("/images/logo.svg"),
   });
   return (
     <HStack
