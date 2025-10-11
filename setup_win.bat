@@ -16,18 +16,26 @@ if %errorlevel% neq 0 (
 
 REM Enter OpenAI API key
 echo OpenAI APIキーを入力してください。（省略可）
+echo(
 echo 注意: Ctrl+Vが機能しない場合は、右クリックして「貼り付け」を選択してください。
+echo(
 set /p OPENAI_API_KEY=Enter your OpenAI API key:
 
 REM Enter Gemini API key
+echo(
 echo Gemini APIキーを入力してください。（省略可）
+echo(
+echo 注意: Ctrl+Vが機能しない場合は、右クリックして「貼り付け」を選択してください。
+echo(
 set /p GEMINI_API_KEY=Enter your Gemini API key:
 
 REM Validate OpenAI API key format
+echo(
 echo APIキーの形式を確認しています...
 set "HAS_ERROR="
 
 REM OpenAI: 入力があるときだけチェック
+echo(
 if defined OPENAI_API_KEY (
   echo %OPENAI_API_KEY% | findstr /R /C:"^sk-" >nul
   if errorlevel 1 (
@@ -37,6 +45,7 @@ if defined OPENAI_API_KEY (
 )
 
 REM Gemini: 入力があるときだけチェック
+echo(
 if defined GEMINI_API_KEY (
   echo %GEMINI_API_KEY% | findstr /R /C:"^AIza" >nul
   if errorlevel 1 (
