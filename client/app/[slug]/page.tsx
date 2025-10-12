@@ -122,8 +122,8 @@ export default async function Page({ params }: PageProps) {
 
   return (
     <>
-      <div className={"container"}>
-        <Header />
+      <Header />
+      <Box className="container" mt="8">
         <Overview result={result} />
         <ClientContainer result={result} />
         <Analysis result={result} />
@@ -132,7 +132,7 @@ export default async function Page({ params }: PageProps) {
         <Box maxW={"750px"} mx={"auto"} mb={24}>
           <Reporter meta={meta} />
         </Box>
-      </div>
+      </Box>
       <Footer meta={meta} />
     </>
   );

@@ -23,21 +23,11 @@ cp .env.example .env
   * OpenRouterのAPIキー。OpenRouter経由でOpenAIやGeminiのモデルを使用する場合に必要。
   * [OpenRouter](https://openrouter.ai/)でアカウントを作成し、APIキーを取得してください。
 * GEMINI_API_KEY
-  * GeminiのAPIキー。[Google AI Studio](https://ai.google.dev/gemini-api/docs/api-key)で取得し、Geminiモデルを直接利用する場合に設定。
-  * 利用例:
-    ```python
-    import os
-    import google.generativeai as genai
-
-    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-    model = genai.GenerativeModel("gemini-1.5-flash")
-    print(model.generate_content("Hello Gemini").text)
-    ```
-  * 利用可能なモデル例: `gemini-1.5-flash`, `gemini-1.5-pro`
+  * GoogleAIStudioのAPIキー。レポート作成時に利用。
 
 ※ APIキーは他人と共有しないでください。GithubやSlackにもアップロードしないよう注意してください。  
 ※ このキーを設定しなくてもサーバーは起動しますが、/admin/reportsなど一部のエンドポイントでエラーになります。  
-※ APIキーを設定してレポート作成などを行うと、OpenAI APIまたはOpenRouter APIの使用料金が発生します。料金は各サービスの公式ドキュメントを参照してください。  
+※ APIキーを設定してレポート作成などを行うと、OpenAI API、Gemini API、またはOpenRouter経由の各APIの使用料金が発生します。
 ※ OpenAI APIまたはOpenRouter APIを使用しない機能は無料で利用できます（通常のインターネット利用の通信料等は除く）。
 
 ## 起動

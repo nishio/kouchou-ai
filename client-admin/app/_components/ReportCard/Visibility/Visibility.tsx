@@ -36,6 +36,8 @@ const iconStyles = {
 
 export function Visibility({ report }: Props) {
   const router = useRouter();
+  const visibility = report.visibility || 'private'; // fallback to 'private'
+  
   return (
     <MenuRoot
       onSelect={async (e) => {
@@ -58,7 +60,7 @@ export function Visibility({ report }: Props) {
         <IconButton
           size="lg"
           border="1px solid"
-          {...iconStyles[report.visibility]}
+          {...iconStyles[visibility]}
           _icon={{
             w: 5,
             h: 5,
@@ -67,7 +69,7 @@ export function Visibility({ report }: Props) {
             shadow: "inset 0 0 0 44px rgba(0, 0, 0, 0.06)",
           }}
         >
-          {iconStyles[report.visibility].icon}
+          {iconStyles[visibility].icon}
         </IconButton>
       </MenuTrigger>
       <Portal>

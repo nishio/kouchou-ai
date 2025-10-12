@@ -64,6 +64,14 @@ if defined HAS_ERROR (
   )
 )
 
+REM Validate Gemini API key format
+if not "%GEMINI_API_KEY%"=="" (
+  echo %GEMINI_API_KEY% | findstr /r "^AIza" > nul
+  if %errorlevel% neq 0 (
+    echo 警告: 入力されたGemini APIキーの形式が正しくない可能性があります。（通常は「AIza」で始まります）
+  )
+)
+
 REM Generate .env file
 echo # Auto-generated .env file > .env
 echo OPENAI_API_KEY=%OPENAI_API_KEY% >> .env

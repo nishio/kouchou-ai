@@ -26,11 +26,11 @@ export function validateReportId(id: string): { isValid: boolean; errorMessage?:
     return { isValid: false, errorMessage: "IDは英小文字、数字、ハイフンのみ使用できます" };
   }
 
-  if (id.startsWith('-')) {
+  if (id.startsWith("-")) {
     return { isValid: false, errorMessage: "IDはハイフンで始めることができません" };
   }
 
-  if (id.endsWith('-')) {
+  if (id.endsWith("-")) {
     return { isValid: false, errorMessage: "IDはハイフンで終わることができません" };
   }
 

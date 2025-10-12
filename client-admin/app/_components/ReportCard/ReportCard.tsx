@@ -50,13 +50,13 @@ function ReportDataAndActions({ report }: Props) {
               </IconButton>
             </GridItem>
             <GridItem>
-              <NumberDisplay value={report.analysis.commentNum} />
+              <NumberDisplay value={report.analysis?.commentNum} />
             </GridItem>
             <GridItem>
-              <NumberDisplay value={report.analysis.argumentsNum} />
+              <NumberDisplay value={report.analysis?.argumentsNum} />
             </GridItem>
             <GridItem>
-              <NumberDisplay value={report.analysis.clusterNum} />
+              <NumberDisplay value={report.analysis?.clusterNum} />
             </GridItem>
             <GridItem>
               <TokenUsage report={report} />

@@ -17,14 +17,11 @@
 - 一般ユーザー向け：
   - 安定版リリースをダウンロード（[Windows](./docs/windows-setup.md)/[Mac](./docs/mac-setup.md)/[Linux](./docs/linux-setup.md)の各ガイドを参照）
   - Docker（各ガイドに従ってインストール）
-- OpenAI API キー
-- Gemini API キー（[取得方法](https://ai.google.dev/gemini-api/docs/api-key)）
+  - OpenAI API キー
 - 開発者向け：
   - docker
   - git
-- OpenAI API キー
-- Gemini API キー（[取得方法](https://ai.google.dev/gemini-api/docs/api-key)）
-
+  - OpenAI API キー
 ## セットアップ・起動
 
 ### 前提
@@ -57,7 +54,7 @@
 - 開発者向け：
   - リポジトリをクローン
   - `cp .env.example .env` をコンソールで実行
-    - コピー後に `OPENAI_API_KEY` や `GOOGLE_API_KEY` を含む各環境変数を設定。各環境変数の意味は .env.example に記載。
+    - コピー後に各環境変数を設定。各環境変数の意味は.env.example に記載。
   - `docker compose up` をコンソールで実行
     - ブラウザで http://localhost:3000 にアクセスすることでレポート一覧画面にアクセス可能
     - ブラウザで http://localhost:4000 にアクセスすることで管理画面にアクセス可能
@@ -96,19 +93,6 @@ GPU を搭載したマシンでローカル LLM を使用したい場合は、�
 
 - ローカル LLM の使用には十分な GPU メモリが必要です（8GB 以上推奨）
 - 初回起動時にはモデルのダウンロードに時間がかかる場合があります
-
-### Gemini API の設定
-
-- [Google AI Studio](https://ai.google.dev/gemini-api/docs/api-key) で API キーを取得し、`.env` に `GOOGLE_API_KEY` として設定します。
-- 利用可能なモデル例: `gemini-1.5-flash`, `gemini-1.5-pro`
-- Python からの利用例:
-  ```python
-  import google.generativeai as genai
-
-  genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
-  model = genai.GenerativeModel("gemini-1.5-flash")
-  print(model.generate_content("こんにちは、世界！").text)
-  ```
 
 ### Google Analytics の設定
 

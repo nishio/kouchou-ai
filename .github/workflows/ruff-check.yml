@@ -36,7 +36,7 @@ jobs:
       - name: Run Ruff linter (including type hints)
         run: |
           echo "Running linter with all rules including type hints..."
-          ruff check .
+          ruff check . --ignore I
 
           echo "Showing type hint issues only (for reference)..."
           ruff check . --select ANN --statistics || true

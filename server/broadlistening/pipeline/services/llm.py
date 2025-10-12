@@ -1,7 +1,9 @@
 import logging
 import os
+import random
 import threading
 import time
+from typing import Any
 
 import openai
 from dotenv import load_dotenv
@@ -111,6 +113,24 @@ def request_to_azure_chatcompletion(
     deployment = os.getenv("AZURE_CHATCOMPLETION_DEPLOYMENT_NAME")
     api_key = user_api_key or os.getenv("AZURE_CHATCOMPLETION_API_KEY")
     api_version = os.getenv("AZURE_CHATCOMPLETION_VERSION")
+
+    missing_vars = []
+    if not azure_endpoint:
+        missing_vars.append("AZURE_CHATCOMPLETION_ENDPOINT")
+    if not deployment:
+        missing_vars.append("AZURE_CHATCOMPLETION_DEPLOYMENT_NAME")
+    if not api_key:
+        missing_vars.append("AZURE_CHATCOMPLETION_API_KEY")
+    if not api_version:
+        missing_vars.append("AZURE_CHATCOMPLETION_VERSION")
+
+    if missing_vars:
+        raise RuntimeError(
+            f"Azure OpenAI environment variables not set: {', '.join(missing_vars)}. "
+            f"Note: Use AZURE_CHATCOMPLETION_* variables, not AZURE_OPENAI_*. "
+            f"See .env.example for correct variable names."
+        )
+
     token_usage_input = 0  # 入力トークン使用量を追跡する変数
     token_usage_output = 0  # 出力トークン使用量を追跡する変数
     token_usage_total = 0  # 合計トークン使用量を追跡する変数
@@ -183,7 +203,7 @@ def request_to_azure_chatcompletion(
 
 def request_to_gemini_chatcompletion(
     messages: list[dict],
-    model: str = "gemini-1.5-flash",
+    model: str = "gemini-2.5-flash",
     is_json: bool = False,
     json_schema: dict | type[BaseModel] | None = None,
     user_api_key: str | None = None,
@@ -195,12 +215,12 @@ def request_to_gemini_chatcompletion(
     if genai is None or google_exceptions is None:  # pragma: no cover - optional dependency
         raise RuntimeError("google-generativeai is required for Gemini provider")
 
-    api_key = user_api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
+    api_key = user_api_key or os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise RuntimeError("GEMINI_API_KEY environment variable is not set")
     genai.configure(api_key=api_key)
 
-    system_instruction = "\n".join(
-        m["content"] for m in messages if m.get("role") == "system"
-    ) or None
+    system_instruction = "\n".join(m["content"] for m in messages if m.get("role") == "system") or None
 
     history = [
         {
@@ -211,23 +231,46 @@ def request_to_gemini_chatcompletion(
         if m.get("role") != "system"
     ]
 
-    model_client = genai.GenerativeModel(
-        model, system_instruction=system_instruction
-    )
+    model_client = genai.GenerativeModel(model, system_instruction=system_instruction)
 
     def _remove_title_keys(obj: dict | list) -> dict | list:
-        """Recursively remove `title` keys from JSON schema objects."""
-
+        """Recursively remove `title` keys from JSON schema objects (non-destructive)."""
         if isinstance(obj, dict):
-            obj.pop("title", None)
-            for value in obj.values():
-                _remove_title_keys(value)
-        elif isinstance(obj, list):
-            for item in obj:
-                _remove_title_keys(item)
+            return {k: _remove_title_keys(v) for k, v in obj.items() if k != "title"}
+        if isinstance(obj, list):
+            return [_remove_title_keys(item) for item in obj]
         return obj
 
+    def _normalize_openai_response_format(schema: dict | None) -> tuple[dict | None, bool]:
+        """
+        OpenAIのresponse_formatをGemini用へ正規化する。
+        戻り値: (raw_schema or None, json_mode_only_flag)
+        - json_mode_only_flag=True のときは response_mime_typeのみを設定（スキーマ無しJSONモード）
+        """
+        if not isinstance(schema, dict):
+            return None, False
+
+        # OpenAI: {"type":"json_object"} → スキーマ無しの JSON モード
+        if schema.get("type") == "json_object":
+            return None, True
+
+        # OpenAI: {"type": "json_schema", "json_schema": {...}} → 中の素スキーマを取り出す
+        if schema.get("type") == "json_schema" and "json_schema" in schema:
+            inner = schema["json_schema"]
+            # OpenRouter等で {"json_schema": {"schema": {...}, "name": "...", "strict": ...}} の場合もあり得る
+            if isinstance(inner, dict) and "schema" in inner:
+                inner = inner["schema"]
+            # 余計なメタ（name/strictなど）は落とす
+            if isinstance(inner, dict):
+                inner.pop("name", None)
+                inner.pop("strict", None)
+            return inner, False
+
+        # 既に“素のスキーマ”が来ているケースはそのまま（後で title 削除）
+        return schema, False
+
     generation_config = None
+    # Pydantic → 素のJSONスキーマ化
     if isinstance(json_schema, type) and issubclass(json_schema, BaseModel):
         schema = json_schema.model_json_schema()
         schema = _remove_title_keys(schema)
@@ -235,28 +278,63 @@ def request_to_gemini_chatcompletion(
             response_mime_type="application/json",
             response_schema=schema,
         )
-    elif isinstance(json_schema, dict):
-        schema = _remove_title_keys(json_schema)
-        generation_config = genai.GenerationConfig(
-            response_mime_type="application/json",
-            response_schema=schema,
-        )
-    elif is_json:
-        generation_config = genai.GenerationConfig(
-            response_mime_type="application/json"
-        )
 
-    max_retries = 3
+    # dict → OpenAIラッパーを剥がしてからセット
+    elif isinstance(json_schema, dict):
+        raw_schema, json_only = _normalize_openai_response_format(json_schema)
+        if json_only:
+            generation_config = genai.GenerationConfig(response_mime_type="application/json")
+        else:
+            schema = _remove_title_keys(raw_schema) if raw_schema else None
+            generation_config = genai.GenerationConfig(
+                response_mime_type="application/json",
+                **({"response_schema": schema} if schema else {}),
+            )
+
+    elif is_json:
+        generation_config = genai.GenerationConfig(response_mime_type="application/json")
+
+    max_retries = 5
+    base_wait = 8
+
     for attempt in range(max_retries):
         try:
-            response = model_client.generate_content(
-                history, generation_config=generation_config
-            )
+            response = model_client.generate_content(history, generation_config=generation_config)
             usage = getattr(response, "usage_metadata", None)
             if usage:
                 token_usage_input = getattr(usage, "prompt_token_count", 0) or 0
                 token_usage_output = getattr(usage, "candidates_token_count", 0) or 0
                 token_usage_total = getattr(usage, "total_token_count", 0) or 0
+
+            try:
+                # candidates, prompt_feedback 等を安全にログ化
+                cands = getattr(response, "candidates", None)
+                finish_reasons = []
+                safety = []
+                if cands:
+                    for _i, c in enumerate(cands):
+                        fr = getattr(c, "finish_reason", None)
+                        finish_reasons.append(fr)
+                        sr = getattr(c, "safety_ratings", None)
+                        if sr:
+                            safety.append([getattr(r, "category", None) for r in sr])
+                    logging.debug(
+                        "[Gemini] Candidates=%d, finish_reasons=%s, safety_categories=%s",
+                        len(cands),
+                        finish_reasons,
+                        safety,
+                    )
+
+                pf = getattr(response, "prompt_feedback", None)
+                if pf:
+                    try:
+                        pf_dict = pf.to_dict() if hasattr(pf, "to_dict") else pf.__dict__
+                    except Exception:
+                        pf_dict = str(pf)
+                    logging.debug("[Gemini] Prompt feedback=%s", pf_dict)
+            except Exception as log_ex:
+                logging.debug("[Gemini] Response meta logging failed: %s", log_ex)
+
             text = response.text
             if isinstance(json_schema, type) and issubclass(json_schema, BaseModel):
                 try:
@@ -278,10 +356,8 @@ def request_to_gemini_chatcompletion(
             raise
         except google_exceptions.GoogleAPICallError as e:
             status_code = getattr(e, "code", None)
-            is_rate_limit = (
-                status_code == 429
-                or isinstance(e, google_exceptions.ResourceExhausted)
-            )
+            is_rate_limit = (status_code == 429) or isinstance(e, google_exceptions.ResourceExhausted)
+
             if not is_rate_limit:
                 logging.error(f"Gemini API error: {e}")
                 raise
@@ -290,27 +366,30 @@ def request_to_gemini_chatcompletion(
             response_data = getattr(e, "response", None)
             if retry_delay is None and isinstance(response_data, dict):
                 retry_delay = (
-                    response_data.get("error", {})
-                    .get("details", [{}])[0]
-                    .get("metadata", {})
-                    .get("retry_delay")
+                    response_data.get("error", {}).get("details", [{}])[0].get("metadata", {}).get("retry_delay")
                 )
 
+            wait_time: int
             if isinstance(retry_delay, str) and retry_delay.endswith("s"):
                 retry_delay = retry_delay[:-1]
             try:
-                wait_time = int(retry_delay) if retry_delay is not None else 30
+                wait_time = int(retry_delay) if retry_delay is not None else 0
             except (TypeError, ValueError):
-                wait_time = 30
+                wait_time = 0
+
+            if wait_time <= 0:
+                # ジッターを含む指数バックオフ: base * 2^attempt * (0.5 ~ 1.5)
+                jitter = 0.5 + random.random()  # 0.5 ~ 1.5 の範囲
+                wait_time = min(int(base_wait * (2**attempt) * jitter), 60)
 
             if attempt >= max_retries - 1:
                 logging.error(
-                    "Gemini API rate limit exceeded repeatedly. Free tier allows 15 requests per minute per model. Consider upgrading to a paid plan."
+                    f"Gemini API rate limit exceeded repeatedly after {max_retries} attempts. "
+                    f"Error: {e}. Free tier allows 15 requests per minute per model. "
+                    "Consider upgrading to a paid plan."
                 )
                 raise
-            logging.warning(
-                f"Gemini API rate limit hit. Retrying after {wait_time} seconds."
-            )
+            logging.info(f"Rate limit hit, retrying after {wait_time} seconds (attempt {attempt + 1}/{max_retries})")
             time.sleep(wait_time)
 
     raise RuntimeError("Gemini API call failed after retries")
@@ -428,7 +507,6 @@ def request_to_chat_ai(
         - provider="openai": OpenAI APIを使用
         - provider="azure": Azure OpenAI APIを使用
         - provider="local": ローカルLLM（OllamaやLM Studio）を使用
-        - provider="gemini": Google Gemini APIを使用
         - provider="openrouter": OpenRouter APIを使用（OpenAIやGeminiのモデルにアクセス可能）
         - provider="gemini": Google Gemini APIを使用
     """
@@ -522,6 +600,14 @@ def request_to_embed(
         response = client.embeddings.create(input=args, model=model)
         embeds = [item.embedding for item in response.data]
         return embeds
+    elif provider == "gemini":
+        logging.info("request_to_gemini_embed")
+        # OpenAI名や未指定が来たら Gemini 既定に置き換える
+        openai_aliases = {"text-embedding-3-large", "text-embedding-3-small"}
+        resolved_model = model
+        if not resolved_model or resolved_model in openai_aliases:
+            resolved_model = "gemini-embedding-001"
+        return request_to_gemini_embed(args, resolved_model, user_api_key)
     elif provider == "openrouter":
         raise NotImplementedError("OpenRouter embedding support is not implemented yet")
     elif provider == "local":
@@ -531,11 +617,102 @@ def request_to_embed(
         raise ValueError(f"Unknown provider: {provider}")
 
 
+def extract_embedding_values(response: Any) -> list[float] | None:
+    # 1) genai オブジェクト系
+    emb_obj = getattr(response, "embedding", None)
+    if emb_obj is not None:
+        # オブジェクトに values 属性
+        vals = getattr(emb_obj, "values", None)
+        if isinstance(vals, list):
+            return vals
+        # ★ 追加: 直接リストのケース（embedding がそのまま list）
+        if isinstance(emb_obj, list):
+            return emb_obj
+
+    # 2) dict 系
+    if isinstance(response, dict):
+        emb = response.get("embedding")
+        # {"embedding": {"values": [...]}}
+        if isinstance(emb, dict) and isinstance(emb.get("values"), list):
+            return emb["values"]
+        # ★ 追加: {"embedding": [...]}
+        if isinstance(emb, list):
+            return emb
+
+        # {"embeddings": [{"values": [...]}, ...]}
+        if isinstance(response.get("embeddings"), list):
+            first = response["embeddings"][0] if response["embeddings"] else None
+            if isinstance(first, dict) and isinstance(first.get("values"), list):
+                return first["values"]
+
+        # OpenAI 互換: {"data": [{"embedding": [...]}]}
+        if isinstance(response.get("data"), list):
+            item = response["data"][0] if response["data"] else None
+            if isinstance(item, dict) and isinstance(item.get("embedding"), list):
+                return item["embedding"]
+
+        # Vertex: {"predictions": [{"embeddings": {"values": [...]}}]} など
+        if isinstance(response.get("predictions"), list):
+            pred = response["predictions"][0] if response["predictions"] else None
+            if isinstance(pred, dict):
+                for key in ("embedding", "embeddings"):
+                    v = pred.get(key)
+                    if isinstance(v, dict) and isinstance(v.get("values"), list):
+                        return v["values"]
+
+    return None
+
+
+def request_to_gemini_embed(args, model, user_api_key: str | None = None):
+    if genai is None:
+        raise RuntimeError("google-generativeai is required for Gemini provider")
+
+    api_key = user_api_key or os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise RuntimeError("GEMINI_API_KEY environment variable is not set")
+
+    genai.configure(api_key=api_key)
+
+    if isinstance(args, str):
+        args = [args]
+
+    embeds: list[list[float]] = []
+    for text in args:
+        response = genai.embed_content(model=model, content=text)
+        values = extract_embedding_values(response)
+        if not isinstance(values, list):
+            # ここでキー一覧などをログに残すと調査が楽
+            keys = list(response.keys()) if isinstance(response, dict) else type(response).__name__
+            raise RuntimeError(
+                f"Gemini embedding response did not contain a 'values' list for text: {text[:50]}... (shape={keys})"
+            )
+        embeds.append(values)
+
+    return embeds
+
+
 def request_to_azure_embed(args, model, user_api_key: str | None = None):
     azure_endpoint = os.getenv("AZURE_EMBEDDING_ENDPOINT")
     api_key = user_api_key or os.getenv("AZURE_EMBEDDING_API_KEY")
     api_version = os.getenv("AZURE_EMBEDDING_VERSION")
     deployment = os.getenv("AZURE_EMBEDDING_DEPLOYMENT_NAME")
+
+    missing_vars = []
+    if not azure_endpoint:
+        missing_vars.append("AZURE_EMBEDDING_ENDPOINT")
+    if not api_key:
+        missing_vars.append("AZURE_EMBEDDING_API_KEY")
+    if not api_version:
+        missing_vars.append("AZURE_EMBEDDING_VERSION")
+    if not deployment:
+        missing_vars.append("AZURE_EMBEDDING_DEPLOYMENT_NAME")
+
+    if missing_vars:
+        raise RuntimeError(
+            f"Azure OpenAI embedding environment variables not set: {', '.join(missing_vars)}. "
+            f"Note: Use AZURE_EMBEDDING_* variables, not AZURE_OPENAI_*. "
+            f"See .env.example for correct variable names."
+        )
 
     client = AzureOpenAI(
         api_version=api_version,
@@ -666,6 +843,7 @@ def _local_llm_test():
     response = request_to_local_llm(messages=messages, model="llama-3-elyza-jp-8b", address="localhost:1234")
     print("Local LLM response example:")
     print(response)
+
 
 @retry(
     retry=retry_if_exception_type(openai.RateLimitError),

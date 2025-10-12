@@ -22,10 +22,10 @@ export const DrawerContent = React.forwardRef<HTMLDivElement, DrawerContentProps
 });
 
 export const DrawerCloseTrigger = React.forwardRef<HTMLButtonElement, ChakraDrawer.CloseTriggerProps>(
-  function DrawerCloseTrigger(props, ref) {
+  function DrawerCloseTrigger({ children, ...props }, ref) {
     return (
       <ChakraDrawer.CloseTrigger position="absolute" top="2" insetEnd="2" {...props} asChild>
-        <CloseButton size="sm" ref={ref} />
+        {children || <CloseButton size="sm" ref={ref} />}
       </ChakraDrawer.CloseTrigger>
     );
   },
@@ -40,3 +40,4 @@ export const DrawerBackdrop = ChakraDrawer.Backdrop;
 export const DrawerDescription = ChakraDrawer.Description;
 export const DrawerTitle = ChakraDrawer.Title;
 export const DrawerActionTrigger = ChakraDrawer.ActionTrigger;
+export const DrawerPositioner = ChakraDrawer.Positioner;

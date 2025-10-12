@@ -45,10 +45,10 @@ describe("validateReportId", () => {
         "abc-def-ghi",
       ];
 
-      testCases.forEach((id) => {
+      for (const id of testCases) {
         const result = validateReportId(id);
         expect(result).toEqual({ isValid: true });
-      });
+      }
     });
 
     test("255文字の場合はisValid: trueを返す", () => {
@@ -109,13 +109,13 @@ describe("validateReportId", () => {
         "test/example",
       ];
 
-      testCases.forEach((id) => {
+      for (const id of testCases) {
         const result = validateReportId(id);
         expect(result).toEqual({
           isValid: false,
           errorMessage: "IDは英小文字、数字、ハイフンのみ使用できます",
         });
-      });
+      }
     });
 
     test("ハイフンで始まる場合は適切なエラーメッセージを返す", () => {

@@ -1,12 +1,15 @@
 import { Text } from "@chakra-ui/react";
 
 type NumberDisplayProps = {
-  value: number;
+  value: number | undefined;
   textStyle?: string;
   textAlign?: "start" | "end" | "left" | "right" | "center" | "justify" | "match-parent";
 };
 
-function formatNumber(value: number): string {
+function formatNumber(value: number | undefined): string {
+  if (value === undefined) {
+    return "-";
+  }
   if (value >= 1000000) {
     return `${Math.floor(value / 1000000)}M`;
   }
