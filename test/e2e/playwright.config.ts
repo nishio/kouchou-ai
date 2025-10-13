@@ -26,8 +26,11 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "cd ../../client-admin && npm run dev",
-    port: 4000,
+    command: "npm run dev --prefix ../../client-admin",
+    url: "http://localhost:4000",
+    timeout: 120 * 1000,
     reuseExistingServer: !process.env.CI,
+    stdout: "pipe",
+    stderr: "pipe",
   },
 });

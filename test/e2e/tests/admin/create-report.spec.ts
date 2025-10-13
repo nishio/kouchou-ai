@@ -10,121 +10,103 @@ import { test, expect } from "@playwright/test";
 test.describe("管理画面 - 初期表示とナビゲーション", () => {
   test("トップページが正常に表示される", async ({ page }) => {
     await page.goto("http://localhost:4000");
-    await expect(page).toHaveTitle(/広聴AI|Kouchou-AI|Admin/);
-    // ページのメインコンテンツが表示されることを確認
-  });
+    await page.waitForLoadState("networkidle");
 
-  test("ナビゲーションメニューが表示される", async ({ page }) => {
-    await page.goto("http://localhost:4000");
-    // ヘッダーやナビゲーションの存在確認
-    // レポート作成へのリンクなどが表示されることを確認
+    // ページタイトルを確認
+    await expect(page).toHaveTitle(/デジタル民主主義|広聴|Kouchou/);
   });
 
   test("レポート作成ページに遷移できる", async ({ page }) => {
-    await page.goto("http://localhost:4000");
-    // レポート作成ページ（/create）へのリンクをクリック
-    // URLが変わることを確認
+    await page.goto("http://localhost:4000/create");
+    await page.waitForLoadState("networkidle");
+
+    // レポート作成ページの見出しが表示される
+    await expect(page.getByRole("heading", { name: "新しいレポートを作成する" })).toBeVisible();
+
+    // ヘッダーのロゴが表示される
+    await expect(page.getByRole("img", { name: "広聴AI" })).toBeVisible();
   });
 });
 
 test.describe("管理画面 - レポート作成フロー", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("http://localhost:4000/create");
+    await page.waitForLoadState("networkidle");
   });
 
   test("レポート作成画面の初期表示", async ({ page }) => {
-    // 必要なフォーム要素が表示されることを確認
-    // - レポート名入力欄
-    // - CSVアップロードボタン
-    // - パイプライン設定オプション
-    // - 作成実行ボタン
+    // ページタイトルの確認
+    await expect(page.getByRole("heading", { name: "新しいレポートを作成する" })).toBeVisible();
+
+    // タブの確認
+    await expect(page.getByRole("tab", { name: "CSVファイル" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Googleスプレッドシート" })).toBeVisible();
+
+    // レポート生成設定ボタンの確認
+    await expect(page.getByRole("button", { name: "レポート生成設定" })).toBeVisible();
+
+    // 作成開始ボタンの確認
+    await expect(page.getByRole("button", { name: "レポート作成を開始" })).toBeVisible();
+
+    // 料金に関する注意書きの確認
+    await expect(page.getByText("有料のAIプロバイダーの場合は作成する度にAPI利用料がかかります")).toBeVisible();
   });
 
-  test("レポート名の入力と検証", async ({ page }) => {
-    // レポート名の入力欄に文字を入力
-    // 空欄の場合のバリデーションエラー表示確認
-    // 不正な文字の場合のエラー表示確認
+  test("入力データタブが表示される", async ({ page }) => {
+    // タブの確認
+    await expect(page.getByRole("tab", { name: "CSVファイル" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Googleスプレッドシート" })).toBeVisible();
   });
 
-  test("CSVファイルのアップロード", async ({ page }) => {
-    // ファイル選択ダイアログを開く
-    // テスト用CSVファイルを選択
-    // アップロード成功メッセージまたは次のステップへの遷移を確認
+  test("CSVファイルタブが選択されている", async ({ page }) => {
+    // CSVファイルタブがデフォルトで選択されている
+    const csvTab = page.getByRole("tab", { name: "CSVファイル" });
+    await expect(csvTab).toBeVisible();
+
+    // タブの選択状態を確認（aria-selected属性）
+    await expect(csvTab).toHaveAttribute("aria-selected", "true");
   });
 
-  test("不正なファイル形式のアップロードはエラーになる", async ({ page }) => {
-    // CSV以外のファイル（.txt、.pdf など）を選択
-    // 適切なエラーメッセージが表示されることを確認
+  test("Googleスプレッドシートタブに切り替えられる", async ({ page }) => {
+    // Googleスプレッドシートタブをクリック
+    await page.getByRole("tab", { name: "Googleスプレッドシート" }).click();
+
+    // タブが選択されたことを確認
+    await expect(page.getByRole("tab", { name: "Googleスプレッドシート" })).toHaveAttribute("aria-selected", "true");
   });
 
-  test("パイプライン設定の変更", async ({ page }) => {
-    // 各種設定項目（クラスタリング設定、LLMモデル選択など）を変更
-    // 設定が保持されることを確認
-    // デフォルト値が適切に設定されていることを確認
+  test("レポート生成設定ボタンをクリックできる", async ({ page }) => {
+    // レポート生成設定ボタンが存在することを確認
+    const settingsButton = page.getByRole("button", { name: "レポート生成設定" });
+    await expect(settingsButton).toBeVisible();
+    await settingsButton.click();
   });
 
-  test("必須項目が未入力の場合は実行できない", async ({ page }) => {
-    // レポート名が空欄の状態で作成ボタンをクリック
-    // エラーメッセージが表示され、実行されないことを確認
+  test("必須項目が未入力の場合は作成ボタンをクリックするとエラーが表示される", async ({ page }) => {
+    // 何も入力せずに作成ボタンをクリック
+    await page.getByRole("button", { name: "レポート作成を開始" }).click();
 
-    // CSVファイルが未選択の状態で作成ボタンをクリック
-    // エラーメッセージが表示され、実行されないことを確認
-  });
-
-  test("レポート作成の実行", async ({ page }) => {
-    // すべての必須項目を入力
-    // 作成ボタンをクリック
-    // 処理中のローディング表示を確認
-    // 完了後、適切なページに遷移することを確認
-  });
-});
-
-test.describe("管理画面 - レポート一覧と管理", () => {
-  test("既存レポートの一覧が表示される", async ({ page }) => {
-    // レポート一覧ページに遷移
-    // 作成済みレポートが一覧表示されることを確認
-    // 各レポートの基本情報（名前、作成日時、ステータスなど）が表示されることを確認
-  });
-
-  test("レポートの検索機能", async ({ page }) => {
-    // 検索欄にキーワードを入力
-    // フィルタリングされた結果が表示されることを確認
-  });
-
-  test("レポートの詳細表示", async ({ page }) => {
-    // 一覧からレポートを選択
-    // 詳細情報が表示されることを確認
-  });
-
-  test("レポートの編集", async ({ page }) => {
-    // レポートの編集ボタンをクリック
-    // 編集画面に遷移することを確認
-    // 変更を保存できることを確認
-  });
-
-  test("レポートの削除", async ({ page }) => {
-    // レポートの削除ボタンをクリック
-    // 確認ダイアログが表示されることを確認
-    // 削除を実行し、一覧から削除されることを確認
+    // エラーメッセージの確認（toaster による表示）
+    // ※Chakra UIのtoasterはalert roleで表示される
+    await expect(page.getByText("入力エラー")).toBeVisible({ timeout: 5000 });
   });
 });
 
-test.describe("管理画面 - エラーハンドリング", () => {
-  test("APIサーバーが停止している場合のエラー表示", async ({ page }) => {
-    // APIサーバーへの接続が失敗した場合
-    // 適切なエラーメッセージが表示されることを確認
-    // ユーザーに再試行の選択肢が提供されることを確認
-  });
+test.describe("管理画面 - API連携", () => {
+  test("APIエラー時にエラーメッセージが表示される", async ({ page }) => {
+    // APIをモックしてエラーレスポンスを返す
+    await page.route("**/admin/reports", (route) => {
+      route.fulfill({
+        status: 500,
+        body: JSON.stringify({ error: "Internal Server Error" }),
+      });
+    });
 
-  test("大容量ファイルアップロード時の処理", async ({ page }) => {
-    // 大きなCSVファイルをアップロード
-    // プログレスインジケーターが表示されることを確認
-    // タイムアウトや容量制限のエラーハンドリングを確認
-  });
+    await page.goto("http://localhost:4000");
+    await page.waitForLoadState("networkidle");
 
-  test("ネットワークエラー時の復旧", async ({ page }) => {
-    // ネットワークエラーが発生した場合
-    // エラーメッセージと再試行オプションが表示されることを確認
+    // エラーメッセージが表示されることを確認
+    await expect(page.getByRole("heading", { name: "レポートの取得に失敗しました" })).toBeVisible();
   });
 });
 
@@ -138,9 +120,14 @@ test.describe("管理画面 - レスポンシブデザイン", () => {
   for (const viewport of viewports) {
     test(`${viewport.name}サイズでの表示確認`, async ({ page }) => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
-      await page.goto("http://localhost:4000");
-      // レイアウトが適切に調整されることを確認
-      // すべての主要機能が利用可能であることを確認
+      await page.goto("http://localhost:4000/create");
+      await page.waitForLoadState("networkidle");
+
+      // ページタイトルが表示されることを確認
+      await expect(page.getByRole("heading", { name: "新しいレポートを作成する" })).toBeVisible();
+
+      // ヘッダーのロゴが表示されることを確認
+      await expect(page.getByRole("img", { name: "広聴AI" })).toBeVisible();
     });
   }
 });
@@ -148,22 +135,20 @@ test.describe("管理画面 - レスポンシブデザイン", () => {
 test.describe("管理画面 - パフォーマンス", () => {
   test("ページの初期読み込み時間", async ({ page }) => {
     const startTime = Date.now();
-    await page.goto("http://localhost:4000");
+    await page.goto("http://localhost:4000/create");
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("heading", { name: "新しいレポートを作成する" })).toBeVisible();
     const loadTime = Date.now() - startTime;
-    // 適切な時間内に読み込まれることを確認（例: 3秒以内）
-    expect(loadTime).toBeLessThan(3000);
-  });
 
-  test("大量データ表示時のパフォーマンス", async ({ page }) => {
-    // レポート一覧に多数のレポートがある場合
-    // ページネーションやスクロールが滑らかに動作することを確認
+    // 10秒以内に読み込まれることを確認（Next.jsの初回起動を考慮）
+    expect(loadTime).toBeLessThan(10000);
   });
 });
 
 /**
  * 注意事項:
- * - 上記のテストは skelton です。実際の実装時には管理画面の具体的なUIに合わせて調整が必要です
- * - セレクタ（button, input など）は実際のHTML構造に合わせて指定してください
- * - テストデータ（fixtures）は test/e2e/fixtures/ に配置してください
- * - Page Object Model を使用する場合は test/e2e/pages/ にページクラスを定義してください
+ * - 上記のテストは実際のUIコード（client-admin/app）に基づいて作成されています
+ * - サーバーが http://localhost:4000 で起動している必要があります
+ * - テストを実行する前に `docker compose up` または `cd client-admin && npm run dev` でサーバーを起動してください
+ * - 一部のテストはAPI応答に依存するため、APIサーバー（port 8000）も起動している必要があります
  */
