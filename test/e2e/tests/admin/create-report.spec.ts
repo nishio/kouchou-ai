@@ -9,7 +9,7 @@ import { test, expect } from "@playwright/test";
 
 test.describe("管理画面 - 初期表示とナビゲーション", () => {
   test("トップページが正常に表示される", async ({ page }) => {
-    await page.goto("http://localhost:4000");
+    await page.goto("/");
     await page.waitForLoadState("networkidle");
 
     // ページタイトルを確認
@@ -17,7 +17,7 @@ test.describe("管理画面 - 初期表示とナビゲーション", () => {
   });
 
   test("レポート作成ページに遷移できる", async ({ page }) => {
-    await page.goto("http://localhost:4000/create");
+    await page.goto("/create");
     await page.waitForLoadState("networkidle");
 
     // レポート作成ページの見出しが表示される
@@ -30,7 +30,7 @@ test.describe("管理画面 - 初期表示とナビゲーション", () => {
 
 test.describe("管理画面 - レポート作成フロー", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("http://localhost:4000/create");
+    await page.goto("/create");
     await page.waitForLoadState("networkidle");
   });
 
@@ -102,7 +102,7 @@ test.describe("管理画面 - API連携", () => {
       });
     });
 
-    await page.goto("http://localhost:4000");
+    await page.goto("/");
     await page.waitForLoadState("networkidle");
 
     // エラーメッセージが表示されることを確認
@@ -120,7 +120,7 @@ test.describe("管理画面 - レスポンシブデザイン", () => {
   for (const viewport of viewports) {
     test(`${viewport.name}サイズでの表示確認`, async ({ page }) => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
-      await page.goto("http://localhost:4000/create");
+      await page.goto("/create");
       await page.waitForLoadState("networkidle");
 
       // ページタイトルが表示されることを確認
@@ -135,7 +135,7 @@ test.describe("管理画面 - レスポンシブデザイン", () => {
 test.describe("管理画面 - パフォーマンス", () => {
   test("ページの初期読み込み時間", async ({ page }) => {
     const startTime = Date.now();
-    await page.goto("http://localhost:4000/create");
+    await page.goto("/create");
     await page.waitForLoadState("networkidle");
     await expect(page.getByRole("heading", { name: "新しいレポートを作成する" })).toBeVisible();
     const loadTime = Date.now() - startTime;
