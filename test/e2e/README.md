@@ -91,6 +91,8 @@ test/e2e/
 │   ├── client/
 │   │   ├── reports.spec.ts        # Client レポート一覧テスト
 │   │   └── report-detail.spec.ts  # Client レポート詳細テスト
+│   ├── verify-dummy-server.spec.ts # ダミーサーバー検証テスト
+│   ├── verify-environment.spec.ts  # 環境設定検証テスト
 │   ├── simple.spec.ts             # シンプルな接続確認テスト（デバッグ用）
 │   └── debug.spec.ts              # 要素確認テスト（デバッグ用）
 ├── seed.spec.ts                   # 基本的な環境確認テスト
@@ -113,6 +115,10 @@ test/e2e/
 - `tests/client/reports.spec.ts` - Client（port 3000）のレポート一覧テスト
 - `tests/client/report-detail.spec.ts` - Client（port 3000）のレポート詳細テスト
 - `seed.spec.ts` - 環境が正しく動作しているかの基本確認
+
+**検証テスト（Clientテスト実行前に推奨）:**
+- `tests/verify-dummy-server.spec.ts` - ダミーサーバーが期待通りにテストフィクスチャを返すことを確認
+- `tests/verify-environment.spec.ts` - 必要なサーバーが正しい環境変数で起動していることを確認
 
 **デバッグ用テスト:**
 - `tests/simple.spec.ts` - ページが正常にロードされるかをチェック（ステータスコード確認）
@@ -152,16 +158,52 @@ test("例", async ({ page }) => {
 
 ### プロジェクトの分離
 
-`playwright.config.ts` では2つのプロジェクトが定義されています：
+`playwright.config.ts` では3つのプロジェクトが定義されています：
 
+- **verify**: 検証テスト（ダミーサーバーと環境設定の確認）
 - **admin**: 管理画面テスト（port 4000）
 - **client**: Clientテスト（port 3000）
 
 各プロジェクトは独立して実行でき、それぞれ異なるbaseURLを使用します。
 
+### 検証テストの重要性
+
+Clientテストを実行する前に、検証テストを実行することを強く推奨します：
+
+```bash
+# ダミーサーバーの動作確認
+npx playwright test tests/verify-dummy-server.spec.ts --project=verify
+
+# 環境変数と設定の確認
+npx playwright test tests/verify-environment.spec.ts --project=verify
+```
+
+**なぜ検証テストが重要か:**
+1. **ダミーサーバーの検証** (`verify-dummy-server.spec.ts`)
+   - ダミーサーバーが期待通りにテストフィクスチャを返しているか確認
+   - `/meta/metadata.json`, `/reports`, `/reports/[slug]` のエンドポイントを個別にテスト
+   - フィクスチャのデータ構造が正しいか検証
+
+2. **環境設定の検証** (`verify-environment.spec.ts`)
+   - clientサーバーがダミーサーバーを正しく参照しているか確認
+   - 環境変数が正しく設定されているか確認
+   - テストに必要なサーバーが起動しているか確認
+
+これらの検証テストが失敗する場合、Clientテストも失敗するため、先に問題を特定できます。
+
 ## テストのデバッグ
 
-テストが失敗する場合は、以下のデバッグ用テストを使用してください：
+テストが失敗する場合は、以下の順序でデバッグを行ってください：
+
+### 0. 検証テスト（最優先）
+
+```bash
+# まず検証テストで基本的な環境を確認
+npx playwright test tests/verify-dummy-server.spec.ts --project=verify
+npx playwright test tests/verify-environment.spec.ts --project=verify
+```
+
+これらが失敗する場合、サーバーの起動状態や環境変数の設定を確認してください。
 
 ### 1. 接続確認
 
@@ -233,7 +275,7 @@ npx playwright test tests/admin/
 ```bash
 # ターミナル1: ダミーAPIサーバーを起動（port 8002）
 cd utils/dummy-server && npm install
-PUBLIC_API_KEY=public E2E_TEST=true npm run dev -- --port 8002
+PUBLIC_API_KEY=public E2E_TEST=true npx next dev -p 8002
 
 # ターミナル2: Clientサーバーを起動（port 3000、ダミーAPIサーバーを参照）
 cd client
@@ -244,6 +286,12 @@ npm run dev
 
 # ターミナル3: テストを実行
 cd test/e2e
+
+# 推奨: まず検証テストを実行して環境を確認
+npx playwright test tests/verify-dummy-server.spec.ts --project=verify
+npx playwright test tests/verify-environment.spec.ts --project=verify
+
+# 検証が成功したら、Clientテストを実行
 npx playwright test --project=client
 # または個別のテストファイルを実行
 npx playwright test tests/client/reports.spec.ts
@@ -253,6 +301,7 @@ npx playwright test tests/client/report-detail.spec.ts
 **注意**:
 - ダミーサーバーとclientサーバーの両方が起動している必要があります
 - clientサーバーは環境変数でダミーサーバー(8002)を参照するように設定します
+- テスト失敗時は、まず検証テストを実行してサーバーと環境変数が正しく設定されているか確認してください
 
 ### テストデータ（フィクスチャ）
 
@@ -260,9 +309,11 @@ Clientテストでは以下のフィクスチャを使用：
 
 - `fixtures/client/metadata.json` - Meta情報（レポート作成者情報）
 - `fixtures/client/reports.json` - レポート一覧（2件のテストレポート）
-- `fixtures/client/report-test-report-1.json` - レポート詳細（まちづくりに関する意見データ）
+- `fixtures/client/report-test-report-1.json` - レポート詳細（**実際の本番データ**: `utils/dummy-server/app/reports/example/hierarchical_result.json` から取得したAIと著作権に関する意見データ）
 
 これらのフィクスチャは `utils/dummy-server` が読み込み、HTTP APIとして提供します。
+
+**重要:** `report-test-report-1.json` は実際のパイプライン処理結果をコピーした本番データ構造を使用しているため、テストが実際のデータ構造を正確に検証できます。
 
 ### テストコード例
 
