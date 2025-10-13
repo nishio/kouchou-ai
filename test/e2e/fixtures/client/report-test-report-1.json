@@ -1,0 +1,116 @@
+{
+  "arguments": [
+    {
+      "arg_id": "arg_1",
+      "argument": "公園をもっと増やしてほしいです",
+      "comment_id": 1,
+      "x": 0.3,
+      "y": 0.7,
+      "p": 1.0,
+      "cluster_ids": ["cluster_1_1"]
+    },
+    {
+      "arg_id": "arg_2",
+      "argument": "子供の遊び場が少ないと感じます",
+      "comment_id": 2,
+      "x": 0.35,
+      "y": 0.65,
+      "p": 1.0,
+      "cluster_ids": ["cluster_1_1"]
+    },
+    {
+      "arg_id": "arg_3",
+      "argument": "道路の整備を優先してほしい",
+      "comment_id": 3,
+      "x": 0.7,
+      "y": 0.4,
+      "p": 1.0,
+      "cluster_ids": ["cluster_1_2"]
+    }
+  ],
+  "clusters": [
+    {
+      "level": 1,
+      "id": "cluster_1_1",
+      "label": "公園・遊び場の拡充",
+      "takeaway": "市民から公園や子供の遊び場を増やしてほしいという意見が多数寄せられています。",
+      "value": 2,
+      "parent": "",
+      "density_rank_percentile": 0.8
+    },
+    {
+      "level": 1,
+      "id": "cluster_1_2",
+      "label": "道路・インフラ整備",
+      "takeaway": "道路などのインフラ整備を求める声があります。",
+      "value": 1,
+      "parent": "",
+      "density_rank_percentile": 0.6
+    }
+  ],
+  "comments": {
+    "1": { "comment": "公園をもっと増やしてほしいです。子供が安全に遊べる場所が少ないです。" },
+    "2": { "comment": "子供の遊び場が少ないと感じます。近所に公園がありません。" },
+    "3": { "comment": "道路の整備を優先してほしいです。でこぼこが多くて危険です。" }
+  },
+  "propertyMap": {},
+  "translations": {},
+  "overview": "市民から公園や子供の遊び場の拡充、道路などのインフラ整備に関する意見が寄せられています。特に公園・遊び場に関する要望が多く見られます。",
+  "config": {
+    "name": "test-config",
+    "question": "まちづくりについてのご意見をお聞かせください",
+    "input": "test-input",
+    "model": "gpt-4",
+    "intro": "市民の皆様からまちづくりに関するご意見を募集しました。",
+    "output_dir": "test-report-1",
+    "is_embedded_at_local": false,
+    "enable_source_link": false,
+    "extraction": {
+      "workers": 1,
+      "limit": 100,
+      "properties": [],
+      "categories": {},
+      "category_batch_size": 10,
+      "source_code": "",
+      "prompt": "",
+      "model": "gpt-4"
+    },
+    "hierarchical_clustering": {
+      "cluster_nums": [2, 5],
+      "source_code": ""
+    },
+    "embedding": {
+      "model": "text-embedding-3-small",
+      "source_code": ""
+    },
+    "hierarchical_initial_labelling": {
+      "workers": 1,
+      "source_code": "",
+      "prompt": "",
+      "model": "gpt-4"
+    },
+    "hierarchical_merge_labelling": {
+      "workers": 1,
+      "source_code": "",
+      "prompt": "",
+      "model": "gpt-4"
+    },
+    "hierarchical_overview": {
+      "source_code": "",
+      "prompt": "",
+      "model": "gpt-4"
+    },
+    "hierarchical_aggregation": {
+      "hidden_properties": {},
+      "source_code": ""
+    },
+    "hierarchical_visualization": {
+      "replacements": {},
+      "source_code": ""
+    },
+    "plan": [],
+    "status": "ready"
+  },
+  "comment_num": 3,
+  "visibility": "public"
+}
