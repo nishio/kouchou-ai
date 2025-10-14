@@ -1,11 +1,11 @@
-import fs from "fs";
+import fs from "fs/promises";
 import path from "path";
 
 export async function GET(request: Request) {
   const requestApiKey = request.headers.get("x-api-key");
   const validApiKey = process.env.PUBLIC_API_KEY;
   if (!requestApiKey || requestApiKey !== validApiKey) {
-    return new Response(null, {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: {
         "Content-Type": "application/json",
@@ -17,10 +17,16 @@ export async function GET(request: Request) {
   // E2E_TEST環境変数が設定されている場合はテストフィクスチャを使用
   let data;
   if (process.env.E2E_TEST === "true") {
-    const fixtureDir = path.join(process.cwd(), "../../test/e2e/fixtures/client");
-    const fixturesPath = path.join(fixtureDir, "reports.json");
-    const fileContent = fs.readFileSync(fixturesPath, "utf8");
-    data = JSON.parse(fileContent);
+    try {
+      const fixtureDir = path.resolve(process.cwd(), "../../test/e2e/fixtures/client");
+      const fixturesPath = path.resolve(fixtureDir, "reports.json");
+      const fileContent = await fs.readFile(fixturesPath, "utf8");
+      data = JSON.parse(fileContent);
+    } catch (error) {
+      // フィクスチャ読み込み失敗時はフォールバック
+      console.error("Failed to load test fixtures, using fallback data:", error);
+      data = [];
+    }
   } else {
     // 通常のダミーデータ
     data = [
@@ -46,7 +52,6 @@ export async function GET(request: Request) {
 export async function OPTIONS() {
   return new Response(null, {
     headers: {
-      "Content-Type": "application/json",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, x-api-key",

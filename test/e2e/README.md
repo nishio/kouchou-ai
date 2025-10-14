@@ -73,11 +73,11 @@ test/e2e/
 │   ├── client/
 │   │   ├── reports.spec.ts        # Client レポート一覧テスト
 │   │   └── report-detail.spec.ts  # Client レポート詳細テスト
+│   ├── seed.spec.ts               # 管理画面の基本的な環境確認テスト
 │   ├── verify-dummy-server.spec.ts # ダミーサーバー検証テスト
 │   ├── verify-environment.spec.ts  # 環境設定検証テスト
 │   ├── simple.spec.ts             # シンプルな接続確認テスト（デバッグ用）
 │   └── debug.spec.ts              # 要素確認テスト（デバッグ用）
-├── seed.spec.ts                   # 基本的な環境確認テスト
 ├── fixtures/
 │   ├── admin/                     # 管理画面用フィクスチャ
 │   └── client/                    # Client用フィクスチャ（APIモック）
@@ -96,7 +96,7 @@ test/e2e/
 - `tests/admin/create-report.spec.ts` - 管理画面（port 4000）の主要な機能テスト
 - `tests/client/reports.spec.ts` - Client（port 3000）のレポート一覧テスト
 - `tests/client/report-detail.spec.ts` - Client（port 3000）のレポート詳細テスト
-- `seed.spec.ts` - 環境が正しく動作しているかの基本確認
+- `tests/seed.spec.ts` - 管理画面の基本的な環境確認テスト
 
 **検証テスト（Clientテスト実行前に推奨）:**
 - `tests/verify-dummy-server.spec.ts` - ダミーサーバーが期待通りにテストフィクスチャを返すことを確認

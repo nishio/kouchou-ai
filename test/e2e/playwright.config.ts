@@ -22,9 +22,10 @@ export default defineConfig({
   projects: [
     {
       name: "verify",
-      testMatch: "**/verify-*.spec.ts",
+      testMatch: ["**/verify-*.spec.ts", "**/seed.spec.ts"],
       use: {
         ...devices["Desktop Chrome"],
+        baseURL: "http://localhost:4000",
       },
     },
     {
