@@ -43,14 +43,17 @@ jobs:
       working-directory: ./client-admin
       run: npm ci
 
+    - name: Set up client
+      working-directory: ./client
+      run: npm ci
+
+    - name: Set up dummy-server
+      working-directory: ./utils/dummy-server
+      run: npm ci
+
     - name: Run Playwright tests
       working-directory: ./test/e2e
       run: npx playwright test
-      env:
-        BASIC_AUTH_USERNAME: ${{ secrets.BASIC_AUTH_USERNAME }}
-        BASIC_AUTH_PASSWORD: ${{ secrets.BASIC_AUTH_PASSWORD }}
-        NEXT_PUBLIC_API_BASEPATH: 'http://localhost:8000'
-        NEXT_PUBLIC_ADMIN_API_KEY: 'test-api-key'
 
     - name: Upload test results
       if: always()

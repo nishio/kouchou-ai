@@ -22,32 +22,14 @@
 
 ## テストの実行
 
-### 前提条件
+### 自動サーバー起動（推奨）
 
-テストを実行する前に、対象のサーバーを起動してください：
+Playwrightの`webServer`機能により、テスト実行時に必要なサーバーが**自動的に起動**されます。
 
-**管理画面テスト（Admin）を実行する場合:**
-```bash
-# 別のターミナルで
-cd client-admin
-npm run dev
-# port 4000 で起動
-```
+- **Admin tests**: client-admin（port 4000）が自動起動
+- **Client tests**: dummy-server（port 8002）とclient（port 3000）が自動起動
 
-**Clientテスト（レポート表示）を実行する場合:**
-
-Clientテストは2つのサーバーが必要です：
-1. ダミーAPIサーバー（port 8002）
-2. Clientアプリケーション（port 3000）
-
-詳細は「Clientテスト（レポート表示画面）」セクションを参照してください。
-
-**すべてのテストを実行する場合:**
-
-管理画面テストとClientテストの両方を実行する場合、3つのサーバーを起動：
-1. 管理画面（port 4000）
-2. ダミーAPIサーバー（port 8002）
-3. Client（port 3000、ダミーAPIサーバーを参照）
+**手動でサーバーを起動する必要はありません。**
 
 ### テスト実行コマンド
 
@@ -244,14 +226,13 @@ npx playwright test --headed --debug
 ### テスト実行
 
 ```bash
-# 事前に管理画面サーバーを起動
-cd ../../client-admin && npm run dev
-
-# 管理画面のテストのみ実行
+# サーバーは自動起動されるので、テストを直接実行できます
 npx playwright test --project=admin
 # または
 npx playwright test tests/admin/
 ```
+
+**注意**: `playwright.config.ts`の`webServer`設定により、client-adminサーバーは自動的に起動されます。手動起動は不要です。
 
 ## Clientテスト（レポート表示画面）
 
@@ -273,8 +254,29 @@ npx playwright test tests/admin/
 ### テスト実行
 
 ```bash
+# サーバーは自動起動されるので、テストを直接実行できます
+npx playwright test --project=client
+# または個別のテストファイルを実行
+npx playwright test tests/client/reports.spec.ts
+npx playwright test tests/client/report-detail.spec.ts
+
+# 推奨: まず検証テストを実行して環境を確認
+npx playwright test tests/verify-dummy-server.spec.ts --project=verify
+npx playwright test tests/verify-environment.spec.ts --project=verify
+```
+
+**注意**:
+- `playwright.config.ts`の`webServer`設定により、dummy-server（port 8002）とclient（port 3000）は自動的に起動されます
+- 手動起動は不要です
+- テスト失敗時は、まず検証テストを実行してサーバーと環境変数が正しく設定されているか確認してください
+
+### 手動でサーバーを起動する場合（デバッグ用）
+
+通常は不要ですが、デバッグのためにサーバーを手動で起動したい場合：
+
+```bash
 # ターミナル1: ダミーAPIサーバーを起動（port 8002）
-cd utils/dummy-server && npm install
+cd utils/dummy-server
 PUBLIC_API_KEY=public E2E_TEST=true npx next dev -p 8002
 
 # ターミナル2: Clientサーバーを起動（port 3000、ダミーAPIサーバーを参照）
@@ -282,26 +284,8 @@ cd client
 NEXT_PUBLIC_API_BASEPATH=http://localhost:8002 \
 API_BASEPATH=http://localhost:8002 \
 NEXT_PUBLIC_PUBLIC_API_KEY=public \
-npm run dev
-
-# ターミナル3: テストを実行
-cd test/e2e
-
-# 推奨: まず検証テストを実行して環境を確認
-npx playwright test tests/verify-dummy-server.spec.ts --project=verify
-npx playwright test tests/verify-environment.spec.ts --project=verify
-
-# 検証が成功したら、Clientテストを実行
-npx playwright test --project=client
-# または個別のテストファイルを実行
-npx playwright test tests/client/reports.spec.ts
-npx playwright test tests/client/report-detail.spec.ts
+npx next dev -p 3000
 ```
-
-**注意**:
-- ダミーサーバーとclientサーバーの両方が起動している必要があります
-- clientサーバーは環境変数でダミーサーバー(8002)を参照するように設定します
-- テスト失敗時は、まず検証テストを実行してサーバーと環境変数が正しく設定されているか確認してください
 
 ### テストデータ（フィクスチャ）
 
