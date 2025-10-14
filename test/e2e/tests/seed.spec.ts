@@ -24,7 +24,7 @@ test.describe("Seed - 環境確認", () => {
     await page.waitForLoadState("networkidle");
 
     // ページが正常に読み込まれることを確認
-    await expect(page).toHaveTitle(/広聴AI|Kouchou|Admin/);
+    await expect(page).toHaveTitle(/デジタル民主主義|ブロードリスニング/);
 
     // ヘッダーのロゴが表示されることを確認
     await expect(page.getByRole("img", { name: "広聴AI" })).toBeVisible();
