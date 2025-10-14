@@ -53,18 +53,7 @@ export default defineConfig({
     },
   ],
   webServer: [
-    // Admin tests: 管理画面サーバーを起動
-    {
-      command: "cd ../../client-admin && npm run dev",
-      port: 4000,
-      timeout: 120 * 1000,
-      reuseExistingServer: !process.env.CI,
-      env: {
-        NEXT_PUBLIC_API_BASEPATH: "http://localhost:8000",
-        NEXT_PUBLIC_ADMIN_API_KEY: "test-api-key",
-      },
-    },
-    // Clientテスト用: ダミーAPIサーバーを起動（テストフィクスチャを返す）
+    // ダミーAPIサーバーを起動（最初に起動する必要がある）
     {
       command: "cd ../../utils/dummy-server && PUBLIC_API_KEY=public E2E_TEST=true npx next dev -p 8002",
       port: 8002,
@@ -73,6 +62,17 @@ export default defineConfig({
       env: {
         E2E_TEST: "true",
         PUBLIC_API_KEY: "public",
+      },
+    },
+    // Admin tests: 管理画面サーバーを起動（ダミーAPIサーバーを参照）
+    {
+      command: "cd ../../client-admin && npm run dev",
+      port: 4000,
+      timeout: 120 * 1000,
+      reuseExistingServer: !process.env.CI,
+      env: {
+        NEXT_PUBLIC_API_BASEPATH: "http://localhost:8002",
+        NEXT_PUBLIC_ADMIN_API_KEY: "public",
       },
     },
     // Clientテスト用: フロントエンドサーバーを起動（ダミーAPIサーバーを参照）
