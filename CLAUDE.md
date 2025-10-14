@@ -169,6 +169,13 @@ The core AI processing happens in `/server/broadlistening/pipeline/`:
 - E2E tests: Full user workflows with Playwright
 - Pipeline tests: Data processing validation
 
+**E2E Testing Important Notes:**
+- **Detailed guide**: See [test/e2e/CLAUDE.md](/test/e2e/CLAUDE.md) for comprehensive E2E testing guidelines
+- **Critical**: Always use `await page.waitForLoadState("networkidle")` in all Playwright tests (Next.js hydration requirement)
+- **Verification first**: Run verification tests before running main E2E tests to catch configuration issues early
+- **Real data**: Use actual production data structures for test fixtures (avoid manually creating dummy data)
+- **Dummy server**: Client tests require a real HTTP API server (`utils/dummy-server`) because Next.js Server Components make actual HTTP requests
+
 ## Azure Deployment
 ```bash
 # Complete Azure setup
