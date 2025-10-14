@@ -59,6 +59,10 @@ export default defineConfig({
       port: 4000,
       timeout: 120 * 1000,
       reuseExistingServer: !process.env.CI,
+      env: {
+        NEXT_PUBLIC_API_BASEPATH: "http://localhost:8000",
+        NEXT_PUBLIC_ADMIN_API_KEY: "test-api-key",
+      },
     },
     // Clientテスト用: ダミーAPIサーバーを起動（テストフィクスチャを返す）
     {
