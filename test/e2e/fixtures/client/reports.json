@@ -1,0 +1,20 @@
+[
+  {
+    "slug": "test-report-1",
+    "status": "ready",
+    "title": "テストレポート1",
+    "description": "これは1つ目のE2Eテスト用レポートの説明です。広聴AIの機能をテストするために作成されました。",
+    "isPubcom": false,
+    "visibility": "public",
+    "createdAt": "2025-01-15T10:00:00Z"
+  },
+  {
+    "slug": "test-report-2",
+    "status": "ready",
+    "title": "テストレポート2：市民の声を集めよう",
+    "description": "2つ目のテストレポートです。より長い説明文をテストするために、少し詳細な内容を記載しています。",
+    "isPubcom": false,
+    "visibility": "public",
+    "createdAt": "2025-01-16T11:30:00Z"
+  }
+]

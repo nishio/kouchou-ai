@@ -11,3 +11,18 @@ docker-compose.override.y*ml
 out
 lefthook-local.yml
 dist
+
+# Claude Code
+.claude/
+.mcp.json
+
+# Playwright
+playwright-report/
+test-results/
+/playwright.config.ts
+
+# Package managers
+pnpm-lock.yaml
+
+# Build outputs
+client/issues-kouchou-ai/

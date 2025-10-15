@@ -1,0 +1,9 @@
+{
+  "isDefault": false,
+  "reporter": "テスト太郎",
+  "message": "これはE2Eテスト用のメッセージです。",
+  "webLink": "https://example.com",
+  "privacyLink": "https://example.com/privacy",
+  "termsLink": "https://example.com/terms",
+  "brandColor": "#2577b1"
+}

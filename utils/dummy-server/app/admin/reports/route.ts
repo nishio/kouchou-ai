@@ -1,65 +1,36 @@
+import { NextResponse } from "next/server";
+
 export async function GET(request: Request) {
   const requestApiKey = request.headers.get("x-api-key");
-  const validApiKey = process.env.ADMIN_API_KEY;
+  const validApiKey = process.env.PUBLIC_API_KEY;
+
   if (!requestApiKey || requestApiKey !== validApiKey) {
-    return new Response(null, {
-      status: 401,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      },
-    });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  // admin では全てのステータスのレポートを返す
-  const data = [
+
+  // E2E_TEST環境変数が設定されている場合はテストフィクスチャを使用
+  if (process.env.E2E_TEST === "true") {
+    // 管理画面用の空のレポートリストを返す
+    return NextResponse.json([]);
+  }
+
+  // 通常のダミーデータ
+  return NextResponse.json([
     {
+      id: "example",
       slug: "example",
       status: "ready",
       title: "[テスト]人類が人工知能を開発・展開する上で、最優先すべき課題は何でしょうか？",
-      description:
-        "あのイーハトーヴォのすきとおった風、夏でも底に冷たさをもつ青いそら、うつくしい森で飾られたモリーオ市、郊外のぎらぎらひかる草の波。",
-      isPubcom: true,
+      createdAt: new Date().toISOString(),
     },
-    {
-      slug: "processing",
-      status: "processing",
-      title: "[テスト]出力中のレポート",
-    },
-  ];
-  return new Response(JSON.stringify(data), {
-    headers: {
-      "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*",
-    },
-  });
-}
-
-export async function POST(request: Request) {
-  const requestApiKey = request.headers.get("x-api-key");
-  const validApiKey = process.env.ADMIN_API_KEY;
-  if (!requestApiKey || requestApiKey !== validApiKey) {
-    return new Response(null, {
-      status: 401,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      },
-    });
-  }
-  return new Response(null, {
-    headers: {
-      "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*",
-    },
-  });
+  ]);
 }
 
 export async function OPTIONS() {
   return new Response(null, {
     headers: {
-      "Content-Type": "application/json",
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, x-api-key",
     },
   });
