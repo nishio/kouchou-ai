@@ -376,6 +376,9 @@ def decide_what_to_run(
         if stepname == "hierarchical_visualization" and config.get("without-html", False):
             reason = "skipping html output"
             run = False
+        elif stepname == "opinion_classification" and not config.get(stepname, {}).get("enabled", False):
+            reason = "opinion_classification is disabled (set opinion_classification.enabled to true)"
+            run = False
         elif config.get("force", False):
             reason = "forced with -f"
         elif config.get("only", None) is not None and config["only"] != stepname:

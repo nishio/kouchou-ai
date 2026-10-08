@@ -252,6 +252,8 @@ class WorkflowEngine:
         output_artifacts = {
             "arguments": "args.csv",
             "relations": "relations.csv",
+            "classifications": "opinion_classifications.csv",
+            "classification_summary": "opinion_classification_summary.json",
             "embeddings": "embeddings.pkl",
             "clusters": "hierarchical_clusters.csv",
             "initial_labels": "hierarchical_initial_labels.csv",
