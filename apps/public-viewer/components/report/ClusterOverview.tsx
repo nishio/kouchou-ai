@@ -1,3 +1,4 @@
+import { useMessages } from "@/lib/i18n/LanguageContext";
 import type { Cluster } from "@/type";
 import { Box, Heading, Link, Text } from "@chakra-ui/react";
 import { MessagesSquareIcon } from "lucide-react";
@@ -8,6 +9,7 @@ type Props = {
 };
 
 export function ClusterOverview({ cluster, onNavigate }: Props) {
+  const messages = useMessages();
   return (
     <Box mx={"auto"} maxW={"750px"} mb={12}>
       <Box mb={2}>
@@ -32,7 +34,7 @@ export function ClusterOverview({ cluster, onNavigate }: Props) {
         </Link>
         <Text fontWeight={"bold"} display={"flex"} gap={1} mt={2}>
           <MessagesSquareIcon size={20} />
-          {cluster.value.toLocaleString()}件
+          {messages.opinionCount(cluster.value)}
         </Text>
       </Box>
       <Text>{cluster.takeaway}</Text>

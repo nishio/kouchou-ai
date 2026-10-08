@@ -1,3 +1,4 @@
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { wrapJapaneseText } from "@/lib/wrapJapaneseText";
 import type { Argument, Cluster, Config } from "@/type";
 import { Box } from "@chakra-ui/react";
@@ -32,6 +33,7 @@ export function ScatterChart({
   config,
   showConvexHull,
 }: Props) {
+  const { language, messages } = useLanguage();
   // 全ての引数を表示するため、argumentListをそのまま使用
   // フィルター条件に合致しないものは後で灰色表示する
   const allArguments = argumentList;
@@ -344,7 +346,8 @@ export function ScatterChart({
             },
             text: matching.map((arg) => {
               const argumentText = wrapJapaneseText(arg.argument, 30);
-              const urlText = config?.enable_source_link && arg.url ? "<br><b>🔗 クリックしてソースを見る</b>" : "";
+              const urlText =
+                config?.enable_source_link && arg.url ? `<br><b>🔗 ${messages.clickToViewSource}</b>` : "";
               return `<b>${cluster.label}</b><br>${argumentText}${urlText}`;
             }),
             type: "scattergl",
@@ -530,7 +533,7 @@ export function ScatterChart({
             displayModeBar: "hover", // 操作時にツールバーを表示
             showSendToCloud: false, // Plotly Cloudへの送信導線は表示しない
             scrollZoom: true, // マウスホイールによるズームを有効化
-            locale: "ja",
+            locale: language, // 操作バーの文言を表示言語に合わせる（ja / ko は ChartCore で登録）
           }}
           onUpdate={onUpdate}
           onClick={(data: PlotMouseEvent) => {
