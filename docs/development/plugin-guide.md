@@ -258,6 +258,7 @@ analysis-core は、分析パイプラインの各ステップをプラグイン
 | プラグインID | 説明 |
 |-------------|------|
 | `analysis.extraction` | コメントから意見を抽出 |
+| `analysis.opinion_classification` | 意見ごとに yes/no ラベル（侮辱・ヘイト表現、政策提案）を付与（任意、既定は無効） |
 | `analysis.embedding` | 埋め込みベクトル生成 |
 | `analysis.hierarchical_clustering` | 階層クラスタリング |
 | `analysis.hierarchical_initial_labelling` | 初期ラベリング |
