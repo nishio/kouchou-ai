@@ -9,6 +9,7 @@ import polars as pl
 
 from src.config import settings
 from src.schemas.admin_report import ReportInput
+from src.services.analysis_config import prune_config_for_mode
 from src.services.report_status import add_new_report_to_status, set_status, update_token_usage
 from src.services.report_sync import ReportSyncService
 from src.utils.logger import setup_logger
@@ -21,6 +22,8 @@ MAX_ERROR_LOG_CHARS = 4000
 def _build_config(report_input: ReportInput) -> dict[str, Any]:
     comment_num = len(report_input.comments)
 
+    # extraction / overview / aggregation は両モード共通のステップ。
+    # 分析方式に依存するステップだけを analysis_mode で分岐する。
     config = {
         "name": report_input.input,
         "input": report_input.input,
@@ -28,6 +31,7 @@ def _build_config(report_input: ReportInput) -> dict[str, Any]:
         "intro": report_input.intro,
         "model": report_input.model,
         "provider": report_input.provider,
+        "analysis_mode": report_input.analysis_mode,
         "is_pubcom": report_input.is_pubcom,
         "is_embedded_at_local": report_input.is_embedded_at_local,
         "local_llm_address": report_input.local_llm_address,
@@ -36,19 +40,6 @@ def _build_config(report_input: ReportInput) -> dict[str, Any]:
             "workers": report_input.workers,
             "limit": comment_num,
         },
-        "hierarchical_clustering": {
-            "cluster_nums": report_input.cluster,
-        },
-        "hierarchical_initial_labelling": {
-            "prompt": report_input.prompt.initial_labelling,
-            "sampling_num": 30,
-            "workers": report_input.workers,
-        },
-        "hierarchical_merge_labelling": {
-            "prompt": report_input.prompt.merge_labelling,
-            "sampling_num": 30,
-            "workers": report_input.workers,
-        },
         "hierarchical_overview": {"prompt": report_input.prompt.overview},
         "hierarchical_aggregation": {
             "sampling_num": report_input.workers,
@@ -56,7 +47,34 @@ def _build_config(report_input: ReportInput) -> dict[str, Any]:
         "enable_source_link": report_input.enable_source_link,
     }
 
-    return config
+    if report_input.analysis_mode == "llm_grouping":
+        # LLM 直接グルーピングでは hierarchical_clustering と
+        # 初期・統合ラベリングを行わず、llm_grouping ステップ
+        # (group discovery + batch assignment) に置き換わる。
+        # group discovery / assignment の prompt・パラメータは
+        # analysis-core 側の既定値 (llm_grouping_specs.json) を使用するため、
+        # ここでは明示セクションを付けない。
+        # NOTE: analysis-core は analysis_mode ごとに許可される config キーを
+        # 検証するため、hierarchical 専用セクションを含めてはいけない。
+        pass
+    else:
+        config["hierarchical_clustering"] = {
+            "cluster_nums": report_input.cluster,
+        }
+        config["hierarchical_initial_labelling"] = {
+            "prompt": report_input.prompt.initial_labelling,
+            "sampling_num": 30,
+            "workers": report_input.workers,
+        }
+        config["hierarchical_merge_labelling"] = {
+            "prompt": report_input.prompt.merge_labelling,
+            "sampling_num": 30,
+            "workers": report_input.workers,
+        }
+
+    # 分岐で既に正しい section だけを組んでいるが、analysis_mode 非該当セクションが
+    # 混入しないことを共通ヘルパで保証する（書き戻し経路と同じ不変条件）。
+    return prune_config_for_mode(config)
 
 
 def _build_analysis_core_command(config_path: Path, only: str | None = None) -> list[str]:
