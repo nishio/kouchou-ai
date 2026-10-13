@@ -163,10 +163,15 @@ def evaluate_condition(
     if condition.strip() == "${not config.without_html}":
         return not get_config_flag("without_html", "without-html", default=False)
 
-    # Check for "${config.key}" pattern
+    # Check for "${config.key}" / "${config.step.key}" pattern (dotted path into nested dicts)
     if condition.startswith("${config.") and condition.endswith("}"):
-        key = condition[9:-1]  # Extract key from ${config.key}
-        return bool(config.get(key, False))
+        path = condition[9:-1]  # Extract key path from ${config.key.subkey}
+        value: Any = config
+        for key in path.split("."):
+            if not isinstance(value, dict) or key not in value:
+                return False
+            value = value[key]
+        return bool(value)
 
     # Default to true for unrecognized conditions
     return True

@@ -1,6 +1,7 @@
 """Generate a convenient JSON output file."""
 
 import json
+import os
 from collections import defaultdict
 from typing import Any, TypedDict
 
@@ -92,6 +93,9 @@ def hierarchical_aggregation(config) -> bool:
         hidden_properties_map: dict[str, list[str]] = config["hierarchical_aggregation"]["hidden_properties"]
 
         results["arguments"] = _build_arguments(clusters, comments, relation_df, config)
+        _merge_opinion_classifications(
+            results["arguments"], f"{output_base_dir}/{config['output_dir']}/opinion_classifications.csv"
+        )
         results["clusters"] = _build_cluster_value(labels, arg_num)
 
         # results["comments"] = _build_comments_value(
@@ -321,6 +325,38 @@ def _build_arguments(
 
         arguments.append(argument)
     return arguments
+
+
+def _merge_opinion_classifications(arguments: list[Argument], path: str) -> int:
+    """Attach opinion classification labels (yes/no per label) to ``arguments[].attributes``.
+
+    The labels come from the optional ``opinion_classification`` step. They are added
+    next to any comment-level ``attribute_*`` values so the viewer's attribute filter
+    can use them without further changes. Returns the number of arguments updated.
+    """
+    if not os.path.exists(path):
+        return 0
+
+    classifications = pl.read_csv(path, infer_schema_length=0)
+    label_columns = [col for col in classifications.columns if col != "arg-id"]
+    if not label_columns:
+        return 0
+    lookup = {
+        str(row["arg-id"]): {col: row[col] for col in label_columns} for row in classifications.iter_rows(named=True)
+    }
+
+    updated = 0
+    for argument in arguments:
+        labels = lookup.get(argument["arg_id"])
+        if labels is None:
+            continue
+        attributes = dict(argument["attributes"] or {})
+        attributes.update(labels)
+        argument["attributes"] = attributes
+        updated += 1
+
+    print(f"意見分類ラベルを付与: {updated}/{len(arguments)}件 ({', '.join(label_columns)})")
+    return updated
 
 
 def _build_cluster_value(melted_labels: pl.DataFrame, total_num: int) -> list[Cluster]:

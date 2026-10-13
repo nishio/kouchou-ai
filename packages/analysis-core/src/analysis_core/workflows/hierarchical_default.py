@@ -3,6 +3,7 @@ Default hierarchical clustering workflow.
 
 This workflow implements the standard analysis pipeline:
 1. Extract opinions from comments
+1b. (Optional) Label each opinion with yes/no flags such as hate_or_insult / policy_proposal
 2. Create embeddings
 3. Perform hierarchical clustering
 4. Label clusters at each level
@@ -36,6 +37,20 @@ def create_hierarchical_workflow(
                 "prompt": "${config.extraction.prompt}",
                 "model": "${config.extraction.model}",
                 "properties": "${config.extraction.properties}",
+            },
+        ),
+        WorkflowStep(
+            id="opinion_classification",
+            plugin="analysis.opinion_classification",
+            depends_on=["extraction"],
+            optional=True,
+            condition="${config.opinion_classification.enabled}",
+            config={
+                "workers": "${config.opinion_classification.workers}",
+                "prompt": "${config.opinion_classification.prompt}",
+                "model": "${config.opinion_classification.model}",
+                "labels": "${config.opinion_classification.labels}",
+                "timeout_seconds": "${config.opinion_classification.timeout_seconds}",
             },
         ),
         WorkflowStep(
@@ -88,7 +103,7 @@ def create_hierarchical_workflow(
         WorkflowStep(
             id="aggregation",
             plugin="analysis.hierarchical_aggregation",
-            depends_on=["extraction", "clustering", "merge_labelling", "overview"],
+            depends_on=["extraction", "opinion_classification", "clustering", "merge_labelling", "overview"],
             config={
                 "hidden_properties": "${config.hierarchical_aggregation.hidden_properties}",
             },

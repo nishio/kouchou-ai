@@ -63,6 +63,7 @@ analysis-core の標準ワークフローは、次のステップでファイル
 | プラグインID | 主な出力 | 形式 |
 |---|---|---|
 | `analysis.extraction` | `args.csv`, `relations.csv` | CSV |
+| `analysis.opinion_classification`（任意） | `opinion_classifications.csv`, `opinion_classification_summary.json` | CSV / JSON |
 | `analysis.embedding` | `embeddings.pkl` | pickle |
 | `analysis.hierarchical_clustering` | `hierarchical_clusters.csv` | CSV |
 | `analysis.hierarchical_initial_labelling` | `hierarchical_initial_labels.csv` | CSV |
@@ -93,6 +94,26 @@ analysis-core の標準ワークフローは、次のステップでファイル
 
 > 注: 追加の属性や分類結果を `args.csv` に付与したい場合は、
 > カスタムステップで `args.csv` を拡張してから `analysis.hierarchical_aggregation` に渡してください。
+
+---
+
+### 1b) `analysis.opinion_classification`（任意）
+
+`opinion_classification.enabled = true` のときだけ実行されます。意見ごとに独立した yes/no ラベルをLLMで付けます。定義と注意点は [意見の分類ラベル](opinion-classification.md) を参照してください。
+
+**出力1: `opinion_classifications.csv`**
+
+| カラム名 | 型 | 説明 |
+|---|---|---|
+| `arg-id` | string | 意見ID |
+| `hate_or_insult` | string | `yes` / `no`（侮辱・ヘイト表現） |
+| `policy_proposal` | string | `yes` / `no`（政策・制度への提案） |
+
+**出力2: `opinion_classification_summary.json`**
+
+ラベルごとの件数と比率（分母は分類した意見数）、使用した provider / model、注意書き。
+
+`hierarchical_aggregation` はこのCSVが存在すると、`hierarchical_result.json` の `arguments[].attributes` にラベル列を追加します（元コメントの `attribute_*` と同じ場所）。
 
 ---
 
@@ -201,6 +222,8 @@ analysis-core の標準ワークフローは、次のステップでファイル
 }
 ```
 
+`attributes` には、入力CSVの `attribute_*` 列に加えて、`opinion_classification` を有効にした場合はラベル列（`"hate_or_insult": "no"`, `"policy_proposal": "yes"`）が入ります。
+
 `clusters` の構造（抜粋）:
 
 ```json
@@ -250,4 +273,5 @@ analysis-core の標準ワークフローは、次のステップでファイル
 ## 関連ドキュメント
 
 - `docs/development/plugin-guide.md`
+- `docs/development/opinion-classification.md`
 - `docs/user-guide/cli-quickstart.md`

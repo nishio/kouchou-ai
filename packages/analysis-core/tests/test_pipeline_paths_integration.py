@@ -452,6 +452,7 @@ class TestOrchestratorPathsIntegration:
             assert run_steps == ["hierarchical_overview", "hierarchical_aggregation"]
             assert skipped_steps == [
                 "extraction",
+                "opinion_classification",
                 "embedding",
                 "hierarchical_clustering",
                 "hierarchical_initial_labelling",

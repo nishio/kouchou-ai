@@ -13,10 +13,12 @@ _STEP_MODULES = {
     "hierarchical_overview": "analysis_core.steps.hierarchical_overview",
     "hierarchical_visualization": "analysis_core.steps.hierarchical_visualization",
     "llm_grouping": "analysis_core.steps.llm_grouping",
+    "opinion_classification": "analysis_core.steps.opinion_classification",
 }
 
 __all__ = [
     "extraction",
+    "opinion_classification",
     "embedding",
     "hierarchical_clustering",
     "hierarchical_initial_labelling",

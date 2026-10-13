@@ -4,6 +4,8 @@ These prompts are used when no custom prompts are provided in the configuration.
 They are designed for Japanese language analysis.
 """
 
+from analysis_core.steps.opinion_labels import DEFAULT_LABELS, build_classification_prompt
+
 EXTRACTION_PROMPT = """あなたは専門的なリサーチアシスタントです。与えられたテキストから、意見を抽出して整理してください。
 
 # 指示
@@ -124,9 +126,14 @@ LLM_GROUPING_ASSIGNMENT_PROMPT = """あなたは意見分析のアシスタン�
 """
 
 
+# 意見分類のプロンプトはラベル定義から組み立てる（定義は steps/opinion_labels.py が正本）
+OPINION_CLASSIFICATION_PROMPT = build_classification_prompt(DEFAULT_LABELS)
+
+
 # Mapping from step names to default prompts
 DEFAULT_PROMPTS = {
     "extraction": EXTRACTION_PROMPT,
+    "opinion_classification": OPINION_CLASSIFICATION_PROMPT,
     "hierarchical_initial_labelling": INITIAL_LABELLING_PROMPT,
     "hierarchical_merge_labelling": MERGE_LABELLING_PROMPT,
     "hierarchical_overview": OVERVIEW_PROMPT,

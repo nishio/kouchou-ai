@@ -16,6 +16,7 @@ def register_all(registry: "PluginRegistry") -> None:
 
     This function registers the standard analysis steps:
     - analysis.extraction
+    - analysis.opinion_classification
     - analysis.embedding
     - analysis.hierarchical_clustering
     - analysis.llm_grouping
@@ -38,9 +39,11 @@ def register_all(registry: "PluginRegistry") -> None:
     from analysis_core.plugins.builtin.hierarchical_overview import hierarchical_overview_plugin
     from analysis_core.plugins.builtin.hierarchical_visualization import hierarchical_visualization_plugin
     from analysis_core.plugins.builtin.llm_grouping import llm_grouping_plugin
+    from analysis_core.plugins.builtin.opinion_classification import opinion_classification_plugin
 
     plugins = [
         extraction_plugin,
+        opinion_classification_plugin,
         embedding_plugin,
         hierarchical_clustering_plugin,
         llm_grouping_plugin,

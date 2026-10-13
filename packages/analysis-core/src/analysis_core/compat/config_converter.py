@@ -25,10 +25,12 @@ def _get_step_source_codes() -> dict[str, str]:
         hierarchical_overview,
         hierarchical_visualization,
         llm_grouping,
+        opinion_classification,
     )
 
     step_functions = {
         "extraction": extraction,
+        "opinion_classification": opinion_classification,
         "embedding": embedding,
         "hierarchical_clustering": hierarchical_clustering,
         "hierarchical_initial_labelling": hierarchical_initial_labelling,
@@ -91,6 +93,17 @@ def normalize_config(config: dict[str, Any], include_source_code: bool = True) -
     extraction.setdefault("categories", {})
     if "extraction" in source_codes:
         extraction.setdefault("source_code", source_codes["extraction"])
+
+    # Opinion classification defaults (opt-in; costs one LLM call per extracted opinion)
+    classification = result.setdefault("opinion_classification", {})
+    classification.setdefault("enabled", False)
+    classification.setdefault("workers", 1)
+    classification.setdefault("prompt", get_default_prompt("opinion_classification") or "")
+    classification.setdefault("model", result["model"])
+    classification.setdefault("labels", None)
+    classification.setdefault("timeout_seconds", None)
+    if "opinion_classification" in source_codes:
+        classification.setdefault("source_code", source_codes["opinion_classification"])
 
     # Embedding defaults
     embedding = result.setdefault("embedding", {})

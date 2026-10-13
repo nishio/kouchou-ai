@@ -48,6 +48,7 @@ class PipelineResult:
 
 DEFAULT_STEP_MODULES: dict[str, tuple[str, str]] = {
     "extraction": ("analysis_core.steps.extraction", "extraction"),
+    "opinion_classification": ("analysis_core.steps.opinion_classification", "opinion_classification"),
     "embedding": ("analysis_core.steps.embedding", "embedding"),
     "hierarchical_clustering": ("analysis_core.steps.hierarchical_clustering", "hierarchical_clustering"),
     "hierarchical_initial_labelling": (
@@ -95,6 +96,7 @@ class PipelineOrchestrator:
     # Default step sequence for hierarchical analysis
     DEFAULT_STEPS = [
         "extraction",
+        "opinion_classification",
         "embedding",
         "hierarchical_clustering",
         "hierarchical_initial_labelling",
@@ -402,6 +404,7 @@ class PipelineOrchestrator:
         workflow = get_workflow_for_mode(self.config.get("analysis_mode", "hierarchical"))
         plan_step_to_workflow_step = {
             "extraction": "extraction",
+            "opinion_classification": "opinion_classification",
             "embedding": "embedding",
             "hierarchical_clustering": "clustering",
             "llm_grouping": "llm_grouping",

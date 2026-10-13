@@ -336,6 +336,21 @@ kouchou-analyze --config report_october.json
 }
 ```
 
+### 意見ごとに侮辱・ヘイト表現 / 政策提案のラベルを付ける
+
+意見1件ごとにLLMで yes/no のラベルを付け、ビューアの属性フィルタで絞り込めるようにします。意見1件につきLLM呼び出しが1回増えます。定義と注意点は [意見の分類ラベル](../development/opinion-classification.md) を参照してください。
+
+```json
+{
+  "opinion_classification": {
+    "enabled": true,
+    "workers": 3
+  }
+}
+```
+
+出力は `opinion_classifications.csv`（意見ごとの `yes` / `no`）と `opinion_classification_summary.json`（件数と比率）です。比率はLLMの判定に基づく、定義に対する割合であり、人手で検証したものではありません。
+
 ### 特定の属性値を非表示にする
 
 ```json
