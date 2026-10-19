@@ -9,6 +9,7 @@ import numpy as np
 import polars as pl
 
 from analysis_core.core.utils import read_input_csv
+from analysis_core.steps.extraction import filter_empty_comments
 
 
 def json_serialize_numpy(obj: Any) -> Any:
@@ -85,7 +86,10 @@ def hierarchical_aggregation(config) -> bool:
 
         arguments = pl.read_csv(f"{output_base_dir}/{config['output_dir']}/args.csv")
         arg_num = len(arguments)
-        relation_df = pl.read_csv(f"{output_base_dir}/{config['output_dir']}/relations.csv")
+        # comment-id は入力CSVの値そのもの（"001" など）なので、型推論で数値化させない
+        relation_df = pl.read_csv(
+            f"{output_base_dir}/{config['output_dir']}/relations.csv", schema_overrides={"comment-id": pl.Utf8}
+        )
         comments = read_input_csv(f"{input_base_dir}/{config['input']}.csv")
         clusters = pl.read_csv(f"{output_base_dir}/{config['output_dir']}/hierarchical_clusters.csv")
         labels = pl.read_csv(f"{output_base_dir}/{config['output_dir']}/hierarchical_merge_labels.csv")
@@ -93,9 +97,11 @@ def hierarchical_aggregation(config) -> bool:
         hidden_properties_map: dict[str, list[str]] = config["hierarchical_aggregation"]["hidden_properties"]
 
         results["arguments"] = _build_arguments(clusters, comments, relation_df, config)
-        _merge_opinion_classifications(
-            results["arguments"], f"{output_base_dir}/{config['output_dir']}/opinion_classifications.csv"
-        )
+        # 無効化した後に前回の分類結果が残っていても混ぜない
+        if config.get("opinion_classification", {}).get("enabled", False):
+            _merge_opinion_classifications(
+                results["arguments"], f"{output_base_dir}/{config['output_dir']}/opinion_classifications.csv"
+            )
         results["clusters"] = _build_cluster_value(labels, arg_num)
 
         # results["comments"] = _build_comments_value(
@@ -141,7 +147,8 @@ def create_custom_intro(config):
 
     input_count = len(comments)
     args_count = len(pl.read_csv(args_path))
-    processed_num = min(input_count, config["extraction"]["limit"])
+    # extraction と同じく、空・空白のみのコメントを除いてから limit を適用した件数を表示する
+    processed_num = min(len(filter_empty_comments(comments)), config["extraction"]["limit"])
 
     print(f"Input count: {input_count}")
     print(f"Args count: {args_count}")
