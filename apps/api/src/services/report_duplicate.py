@@ -33,6 +33,31 @@ REUSE_ARTIFACTS = (
 )
 
 
+def _write_reuse_status(status_src: Path, status_dest: Path) -> None:
+    """複製先に、元レポートの完了済みジョブだけを引き継いだ status ファイルを書く
+
+    元の status（status=completed）をそのままコピーすると、analysis-core が running に
+    書き換えるまでの間に進捗ポーリングが completed を受け取り、止まってしまう。
+    analysis-core のスキップ判定に必要な completed_jobs / previously_completed_jobs だけを
+    残し、status は pending にする（running にすると lock_until の判定にかかる）。
+    """
+    try:
+        with open(status_src, encoding="utf-8") as f:
+            source_status = json.load(f)
+    except Exception as e:
+        logger.warning(f"Failed to read {status_src}; copying as is: {e}")
+        shutil.copy2(status_src, status_dest)
+        return
+
+    reuse_status = {
+        "status": "pending",
+        "completed_jobs": source_status.get("completed_jobs", []),
+        "previously_completed_jobs": source_status.get("previously_completed_jobs", []),
+    }
+    with open(status_dest, "w", encoding="utf-8") as f:
+        json.dump(reuse_status, f, ensure_ascii=False, indent=2)
+
+
 def _lock_path(slug: str) -> Path:
     return settings.REPORT_DIR / LOCK_DIR_NAME / f"{slug}.lock"
 
@@ -111,12 +136,12 @@ def release_duplicate_lock(lock_path: Path) -> None:
         logger.warning(f"Failed to release duplicate lock: {lock_path} error={e}")
 
 
-def _slug_exists_anywhere(slug: str) -> bool:
+def slug_exists_anywhere(slug: str, include_input: bool = True) -> bool:
     if slug_exists(slug):
         return True
     if (settings.CONFIG_DIR / f"{slug}.json").exists():
         return True
-    if (settings.INPUT_DIR / f"{slug}.csv").exists():
+    if include_input and (settings.INPUT_DIR / f"{slug}.csv").exists():
         return True
     if (settings.REPORT_DIR / slug).exists():
         return True
@@ -197,11 +222,11 @@ def _write_input_csv_from_arguments(arguments: list, output_path: Path) -> int:
 def _generate_slug(source_slug: str) -> str:
     date_str = datetime.now(UTC).strftime("%Y%m%d")
     base = f"{source_slug}-copy-{date_str}"
-    if not _slug_exists_anywhere(base):
+    if not slug_exists_anywhere(base):
         return base
     for i in range(1, 1000):
         candidate = f"{base}-{i}"
-        if not _slug_exists_anywhere(candidate):
+        if not slug_exists_anywhere(candidate):
             return candidate
     raise HTTPException(status_code=409, detail="Failed to generate unique slug")
 
@@ -283,7 +308,7 @@ def duplicate_report(
     created_any = False
     cleanup_on_failure = True
     try:
-        if _slug_exists_anywhere(new_slug):
+        if slug_exists_anywhere(new_slug):
             raise HTTPException(status_code=409, detail="newSlug already exists")
 
         source_result: dict | None = None
@@ -353,7 +378,7 @@ def duplicate_report(
 
             status_src = source_output_dir / "hierarchical_status.json"
             if status_src.exists():
-                shutil.copy2(status_src, output_dir / "hierarchical_status.json")
+                _write_reuse_status(status_src, output_dir / "hierarchical_status.json")
             else:
                 logger.warning(f"hierarchical_status.json not found for {source_slug}")
 

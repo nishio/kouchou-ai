@@ -10,8 +10,14 @@ import polars as pl
 
 from src.config import settings
 from src.schemas.admin_report import ReportInput
+from src.schemas.report import ReportStatus
 from src.services.analysis_config import prune_config_for_mode
-from src.services.report_status import add_new_report_to_status, set_status, update_token_usage
+from src.services.report_status import (
+    add_new_report_to_status,
+    load_status_as_reports,
+    set_status,
+    update_token_usage,
+)
 from src.services.report_sync import ReportSyncService
 from src.utils.logger import setup_logger
 
@@ -212,6 +218,100 @@ def _ensure_error_status_payload(slug: str, error_override: str | None = None) -
         json.dump(status_data, f, indent=2, ensure_ascii=False)
 
 
+UPLOAD_FAILED_ERROR = "Failed to upload report artifacts to storage"
+
+
+def _sync_report_artifacts_to_storage(slug: str) -> bool:
+    """成果物・入力・設定ファイルをストレージに同期し、全て成功したかを返す"""
+    logger.info(f"Syncing files for {slug} to storage")
+    report_sync_service = ReportSyncService()
+    try:
+        # 1つが失敗しても残りは試み、結果を集約する
+        results = [
+            # レポートファイルをストレージに同期し、JSONファイル以外を削除
+            report_sync_service.sync_report_files_to_storage(slug),
+            # 入力ファイルをストレージに同期
+            report_sync_service.sync_input_file_to_storage(slug),
+            # 設定ファイルをストレージに同期
+            report_sync_service.sync_config_file_to_storage(slug),
+        ]
+    except Exception as e:
+        logger.error(f"Error syncing files for {slug} to storage: {e}")
+        return False
+    return all(results)
+
+
+def _settle_completed_report(slug: str) -> None:
+    """analysis-core が正常終了したレポートの成果物を同期し、成否に応じて status を確定する
+
+    成果物のアップロードが一部でも失敗した状態で ready にすると、再起動後に結果ファイルの
+    無い ready レポートが残るため、全て成功した場合だけ ready にする。
+    """
+    if _sync_report_artifacts_to_storage(slug):
+        set_status(slug, "ready")
+    else:
+        logger.error(f"Failed to sync report artifacts for {slug}; marking report as error")
+        _ensure_error_status_payload(slug, error_override=UPLOAD_FAILED_ERROR)
+        set_status(slug, "error")
+
+
+def _finalize_completed_report(slug: str) -> None:
+    _settle_completed_report(slug)
+    # ステータスファイルをストレージに同期
+    ReportSyncService().sync_status_file_to_storage()
+
+
+INTERRUPTED_ERROR = "Report generation was interrupted by an API server restart"
+
+
+def _is_workflow_completed(slug: str) -> bool:
+    report_dir = settings.REPORT_DIR / slug
+    status_file = report_dir / "hierarchical_status.json"
+    if not status_file.exists() or not (report_dir / "hierarchical_result.json").exists():
+        return False
+    try:
+        with open(status_file, encoding="utf-8") as f:
+            return json.load(f).get("status") == "completed"
+    except Exception as exc:
+        logger.warning(f"Failed to load status file for {slug}: {exc}")
+        return False
+
+
+def recover_interrupted_reports() -> None:
+    """サーバー起動時に processing のまま残ったレポートの status を確定する
+
+    analysis-core の終了を監視するスレッドはサーバープロセスと一緒に失われるため、
+    再起動前に processing だったレポートはそのままだと processing に固着し、再実行も
+    複製もできなくなる。成果物が完成していれば ready（同期失敗時は error）に、
+    それ以外は error に遷移させる。
+
+    制約: サーバープロセスだけが再起動し analysis-core のサブプロセスが生き残る場合
+    （開発用の uvicorn --reload、ストレージを共有する複数インスタンスなど）も、実行中の
+    レポートは error になる。その後ジョブが完了しても監視するものがないため error のまま残る。
+    """
+    try:
+        interrupted = [r.slug for r in load_status_as_reports() if r.status == ReportStatus.PROCESSING]
+    except Exception as e:
+        logger.error(f"Failed to load report status for recovery: {e}")
+        return
+    if not interrupted:
+        return
+
+    for slug in interrupted:
+        try:
+            if _is_workflow_completed(slug):
+                logger.info(f"Recovering interrupted report {slug}: workflow already completed")
+                _settle_completed_report(slug)
+            else:
+                logger.warning(f"Recovering interrupted report {slug}: marking as error")
+                _ensure_error_status_payload(slug, error_override=INTERRUPTED_ERROR)
+                set_status(slug, "error")
+        except Exception as e:
+            logger.error(f"Failed to recover interrupted report {slug}: {e}")
+
+    ReportSyncService().sync_status_file_to_storage()
+
+
 def _monitor_process(process: subprocess.Popen, slug: str, log_file: Any | None = None) -> None:
     """
     サブプロセスの実行を監視し、完了時にステータスを更新する
@@ -257,18 +357,7 @@ def _monitor_process(process: subprocess.Popen, slug: str, log_file: Any | None 
             except Exception as e:
                 logger.error(f"Error updating token usage for {slug}: {e}")
 
-            set_status(slug, "ready")
-
-            logger.info(f"Syncing files for {slug} to storage")
-            report_sync_service = ReportSyncService()
-            # レポートファイルをストレージに同期し、JSONファイル以外を削除
-            report_sync_service.sync_report_files_to_storage(slug)
-            # 入力ファイルをストレージに同期し、ローカルファイルを削除
-            report_sync_service.sync_input_file_to_storage(slug)
-            # 設定ファイルをストレージに同期
-            report_sync_service.sync_config_file_to_storage(slug)
-            # ステータスファイルをストレージに同期
-            report_sync_service.sync_status_file_to_storage()
+            _finalize_completed_report(slug)
 
         else:
             _ensure_error_status_payload(slug)
