@@ -494,7 +494,7 @@ def request_to_gemini_chatcompletion(
     raise RuntimeError("Gemini API call failed after retries")
 
 
-def _resolve_local_llm_base_url(address: str) -> str:
+def resolve_local_llm_base_url(address: str) -> str:
     """`address` から OpenAI 互換ローカル LLM 用の base URL を組み立てる。
 
     対応する形式:
@@ -523,6 +523,9 @@ def _resolve_local_llm_base_url(address: str) -> str:
     if ":" in host:  # IPv6 リテラルは角括弧で囲む
         host = f"[{host}]"
     return f"http://{host}:{port}/v1"
+
+
+_resolve_local_llm_base_url = resolve_local_llm_base_url
 
 
 def request_to_local_llm(
