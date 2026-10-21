@@ -52,6 +52,17 @@ const ja = {
 
   // 散布図・ツリーマップ
   clickToViewSource: "クリックしてソースを見る",
+  scatterHintTitle: "散布図の操作方法",
+  scatterHintShowLabel: "散布図の操作方法を表示",
+  scatterHintItems: [
+    "・ドラッグ: 表示位置を移動（パン）",
+    "・マウスホイール / ピンチ: 拡大・縮小",
+    "・右上ツールバー: 拡大・移動・初期表示へリセット",
+    "・点にカーソルを合わせる: 意見の内容を表示",
+  ],
+  scatterHintSourceLink: "・点をクリック: 元のソースを開く",
+  parentAttributionTitle: "濃い意見グループの第一階層クラスタへの帰属",
+  hiddenSuffix: "（非表示）",
   originalCount: "元の件数",
   afterFilterCount: "フィルター後",
   belongsTo: "所属",
@@ -218,6 +229,17 @@ const en: Messages = {
   exitFullscreen: "Exit fullscreen",
 
   clickToViewSource: "Click to view the source",
+  scatterHintTitle: "How to use the scatter plot",
+  scatterHintShowLabel: "Show how to use the scatter plot",
+  scatterHintItems: [
+    "・Drag: move the view (pan)",
+    "・Mouse wheel / pinch: zoom in and out",
+    "・Toolbar (top right): zoom, pan, reset to the initial view",
+    "・Hover over a point: show the opinion",
+  ],
+  scatterHintSourceLink: "・Click a point: open the original source",
+  parentAttributionTitle: "Top-level clusters of the dense opinion groups",
+  hiddenSuffix: " (hidden)",
   originalCount: "Original count",
   afterFilterCount: "After filter",
   belongsTo: "Parent group",
@@ -377,6 +399,17 @@ const ko: Messages = {
   exitFullscreen: "전체 화면 종료",
 
   clickToViewSource: "클릭하여 출처 보기",
+  scatterHintTitle: "산점도 조작 방법",
+  scatterHintShowLabel: "산점도 조작 방법 보기",
+  scatterHintItems: [
+    "・드래그: 표시 위치 이동(팬)",
+    "・마우스 휠 / 핀치: 확대・축소",
+    "・오른쪽 위 도구 모음: 확대・이동・초기 화면으로 재설정",
+    "・점에 커서를 올리기: 의견 내용 표시",
+  ],
+  scatterHintSourceLink: "・점 클릭: 원본 소스 열기",
+  parentAttributionTitle: "밀도 높은 의견 그룹의 최상위 클러스터 소속",
+  hiddenSuffix: " (숨김)",
   originalCount: "원래 건수",
   afterFilterCount: "필터 후",
   belongsTo: "소속",

@@ -225,6 +225,9 @@ def test_cli_dry_run_and_errors(tmp_path, capsys):
     def failing(messages, json_schema):
         raise RuntimeError("private API failure")
 
+    # ここまでの出力（macOS では tmp_path が /private/var/... なのでパスに "private" を含む）を捨て、
+    # 翻訳失敗時の出力だけを検査する
+    capsys.readouterr()
     assert translate_cli.main(["--result", str(source), "--languages", "en"], request=failing) == 1
     err = capsys.readouterr().err
     assert "翻訳に失敗" in err

@@ -606,13 +606,12 @@ export function ScatterChart({
   const operationHint = (
     <Box fontSize="xs" lineHeight="1.6">
       <Text fontWeight="bold" mb={1}>
-        散布図の操作方法
+        {messages.scatterHintTitle}
       </Text>
-      <Text>・ドラッグ: 表示位置を移動（パン）</Text>
-      <Text>・マウスホイール / ピンチ: 拡大・縮小</Text>
-      <Text>・右上ツールバー: 拡大・移動・初期表示へリセット</Text>
-      <Text>・点にカーソルを合わせる: 意見の内容を表示</Text>
-      {config?.enable_source_link && <Text>・点をクリック: 元のソースを開く</Text>}
+      {messages.scatterHintItems.map((item) => (
+        <Text key={item}>{item}</Text>
+      ))}
+      {config?.enable_source_link && <Text>{messages.scatterHintSourceLink}</Text>}
     </Box>
   );
 
@@ -622,7 +621,7 @@ export function ScatterChart({
         <Box position="absolute" top="8px" left="8px" zIndex={2}>
           <Tooltip content={operationHint} showArrow openDelay={0} closeDelay={150} contentProps={{ maxW: "260px" }}>
             <IconButton
-              aria-label="散布図の操作方法を表示"
+              aria-label={messages.scatterHintShowLabel}
               size="xs"
               variant="ghost"
               color="gray.500"
@@ -705,7 +704,7 @@ export function ScatterChart({
       {parentAttribution && parentAttribution.groups.length > 0 && (
         <Box flexShrink={0} px={3} py={2} borderTop="1px solid #eee" maxH="140px" overflowY="auto" bg="#fafafa">
           <Text fontSize="xs" fontWeight="bold" color="gray.600" mb={1}>
-            濃い意見グループの第一階層クラスタへの帰属
+            {messages.parentAttributionTitle}
           </Text>
           <Flex wrap="wrap" gap={3}>
             {parentAttribution.groups.map((group) => (
@@ -719,7 +718,7 @@ export function ScatterChart({
                       <Box w="10px" h="10px" borderRadius="sm" flexShrink={0} bg={member.color} />
                       <Text fontSize="xs" color="gray.600">
                         {member.label}
-                        {member.filteredOut ? "（非表示）" : ""}
+                        {member.filteredOut ? messages.hiddenSuffix : ""}
                       </Text>
                     </Flex>
                   ))}
