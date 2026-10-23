@@ -13,6 +13,7 @@ import polars as pl
 from pydantic import BaseModel, Field
 
 from analysis_core.services.llm import request_to_chat_ai
+from analysis_core.services.timeouts import DEFAULT_REQUEST_TIMEOUT_SECONDS
 from analysis_core.steps.hierarchical_clustering import (
     MIN_ARGUMENTS_FOR_UMAP_FIT,
     UMAP_N_COMPONENTS,
@@ -20,7 +21,8 @@ from analysis_core.steps.hierarchical_clustering import (
     calculate_recommended_cluster_nums,
 )
 
-LLM_GROUPING_TIMEOUT_SECONDS = 300
+# グループ発見・割当の LLM 呼び出しも、ほかの工程と同じく LLM_REQUEST_TIMEOUT_SECONDS に従う
+LLM_GROUPING_TIMEOUT_SECONDS = DEFAULT_REQUEST_TIMEOUT_SECONDS
 
 # 指定カテゴリ分類（supervised）で必ず用意する「その他」受け皿。
 # どのカテゴリにも当てはまらない意見を無理に押し込めないための catch-all。
