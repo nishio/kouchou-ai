@@ -43,6 +43,9 @@ BASIC_AUTH_PASSWORD=your_password
 
 # OpenAI API設定
 OPENAI_API_KEY=your_openai_key
+
+# 公開ページのキャッシュ破棄用。make azure-config-update が api と public-viewer に同じ値を渡す（空だと止まる）
+REVALIDATE_SECRET=your_revalidate_secret
 ```
 
 `ADMIN_API_KEY` は api だけでなく、管理画面（admin）のサーバー側（再利用設定の取得・レポートの複製）でも使います。`make azure-config-update` と GitHub Actions の `azure-deploy.yml` は、admin コンテナにも `ADMIN_API_KEY` を設定します。
