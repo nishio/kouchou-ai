@@ -38,8 +38,9 @@ Admin UIから外部サービスのデータを取り込むためのプラグイ
 Twitter input plugin for fetching tweets.
 """
 
-import pandas as pd
 from typing import Any
+
+import polars as pl
 
 from src.plugins.base import InputPlugin, PluginManifest, PluginSetting, SettingType
 from src.plugins.registry import PluginRegistry
@@ -81,8 +82,8 @@ class TwitterPlugin(InputPlugin):
             return False, "無効なTwitter URLです"
         return True, None
 
-    def fetch_data(self, source: str, **options: Any) -> pd.DataFrame:
-        """データを取得してDataFrameで返す"""
+    def fetch_data(self, source: str, **options: Any) -> pl.DataFrame:
+        """データを取得して polars の DataFrame で返す"""
         # 設定が完了しているか確認（必須）
         self.ensure_configured()
 
@@ -100,7 +101,7 @@ class TwitterPlugin(InputPlugin):
 
         # 必須カラム: comment-id, comment-body, source, url
         # オプション: attribute_* で追加属性
-        return pd.DataFrame([
+        return pl.DataFrame([
             {
                 "comment-id": "tweet_123",
                 "comment-body": "投稿内容",
@@ -176,7 +177,7 @@ apps/api/src/plugins/
 
 ## fetch_data の戻り値
 
-`fetch_data()` は以下のカラムを持つ `pd.DataFrame` を返す必要があります：
+`fetch_data()` は以下のカラムを持つ `polars.DataFrame` を返す必要があります（pandas の DataFrame ではありません。API の依存には pandas が含まれていないため、`import pandas` するとプラグインが読み込まれません）：
 
 ### 必須カラム
 
@@ -278,6 +279,9 @@ analysis-core は、分析パイプラインの各ステップをプラグイン
 最も簡単なプラグイン作成方法は `@step_plugin` デコレータを使用することです。
 
 ```python
+# my_plugin.py
+import polars as pl
+
 from analysis_core.plugin import (
     step_plugin,
     StepContext,
@@ -301,15 +305,16 @@ def custom_analysis_plugin(
 ) -> StepOutputs:
     """カスタム分析を実行"""
 
-    # 入力ファイルを読み込み
-    args_path = inputs.artifacts.get("arguments")
+    # 入力ファイル（抽出された意見の args.csv）を読み込み
+    args_path = inputs.artifacts["arguments"]
+    args_df = pl.read_csv(args_path)
 
-    # 処理を実行
-    # ...
+    # 処理を実行（例: 意見ごとの文字数を数える）
+    result_df = args_df.with_columns(pl.col("argument").str.len_chars().alias("length"))
 
     # 結果を保存
     output_path = ctx.output_dir / "custom_result.csv"
-    # result_df.to_csv(output_path, index=False)
+    result_df.write_csv(output_path)
 
     return StepOutputs(
         artifacts={"custom_result": output_path},
@@ -519,6 +524,15 @@ workflow = WorkflowDefinition(
 LLMを使用するプラグインの例：
 
 ```python
+# my_llm_plugin.py
+import json
+
+import polars as pl
+
+from analysis_core.plugin import StepContext, StepInputs, StepOutputs, step_plugin
+from analysis_core.services.llm import request_to_chat_ai
+
+
 @step_plugin(
     id="mycompany.llm_analysis",
     version="1.0.0",
@@ -531,59 +545,78 @@ def llm_analysis_plugin(
     inputs: StepInputs,
     config: dict,
 ) -> StepOutputs:
-    from analysis_core.services.llm import request_to_chat_ai
-
     # プロンプトを取得（configから、またはデフォルト）
     prompt = config.get("prompt", "Analyze the following...")
     model = config.get("model", ctx.model)
 
+    # 分析対象の意見を読み込み
+    arguments = pl.read_csv(inputs.artifacts["arguments"])["argument"].to_list()
+
     # LLMリクエスト
-    response = request_to_chat_ai(
-        messages=[{"role": "user", "content": prompt}],
+    # 戻り値は (応答テキスト, 入力トークン数, 出力トークン数, 合計トークン数) のタプル
+    response_text, token_input, token_output, token_total = request_to_chat_ai(
+        messages=[
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": "\n".join(arguments)},
+        ],
         model=model,
         provider=ctx.provider,
+        local_llm_address=ctx.local_llm_address,
+        user_api_key=ctx.user_api_key,
     )
+
+    # 結果を保存
+    output_path = ctx.output_dir / "analysis_result.json"
+    output_path.write_text(json.dumps({"result": response_text}, ensure_ascii=False), encoding="utf-8")
 
     # トークン使用量を記録
     return StepOutputs(
         artifacts={"analysis_result": output_path},
-        token_usage=response.get("total_tokens", 0),
-        token_input=response.get("prompt_tokens", 0),
-        token_output=response.get("completion_tokens", 0),
+        token_usage=token_total,
+        token_input=token_input,
+        token_output=token_output,
     )
 ```
 
 ## テスト
 
-プラグインのテスト例：
+クイックスタートの `custom_analysis_plugin`（`my_plugin.py`）のテスト例です。pytest の `tmp_path` に入力ファイルを用意して実行します。
+
+`@step_plugin` を付けた関数は `FunctionPlugin` オブジェクトに置き換わるため、関数のように直接呼び出すことはできません。`.run(ctx, inputs, config)` で実行してください。
 
 ```python
-import pytest
 from pathlib import Path
+
 from analysis_core.plugin import StepContext, StepInputs
 
-def test_custom_plugin():
+from my_plugin import custom_analysis_plugin
+
+
+def test_custom_analysis_plugin(tmp_path: Path):
+    # テスト用の入力ファイル
+    args_path = tmp_path / "args.csv"
+    args_path.write_text("arg-id,argument\nA1_0,公園を増やしてほしい\n", encoding="utf-8")
+
     # テスト用コンテキスト
     ctx = StepContext(
-        output_dir=Path("/tmp/test_output"),
-        input_dir=Path("/tmp/test_input"),
+        output_dir=tmp_path,
+        input_dir=tmp_path,
         dataset="test",
         provider="openai",
         model="gpt-4o-mini",
     )
 
     # テスト用入力
-    inputs = StepInputs(
-        artifacts={"arguments": Path("/tmp/test_input/args.csv")},
-    )
+    inputs = StepInputs(artifacts={"arguments": args_path})
 
-    # プラグイン実行
-    result = custom_step_plugin(ctx, inputs, {"threshold": 0.5})
+    # プラグイン実行（直接呼び出しではなく run() を使う）
+    result = custom_analysis_plugin.run(ctx, inputs, {})
 
     # 検証
-    assert result.artifacts.get("custom_result") is not None
     assert result.artifacts["custom_result"].exists()
 ```
+
+LLM を使うプラグインをテストするときは、`unittest.mock.patch("my_llm_plugin.request_to_chat_ai", return_value=("応答", 10, 5, 15))` のように LLM の呼び出しを差し替えると、API を呼ばずに確かめられます。
 
 ## ベストプラクティス
 
@@ -654,7 +687,7 @@ apps/public-viewer/components/charts/
 ├── plugins/
 │   ├── types.ts          # プラグインの型定義
 │   ├── registry.ts       # プラグインレジストリ
-│   ├── scatter.tsx       # 散布図プラグイン (scatterAll, scatterDensity)
+│   ├── scatter.tsx       # 散布図プラグイン (scatterAll, scatterDetail, scatterDensity)
 │   ├── treemap.tsx       # ツリーマップ プラグイン
 │   └── hierarchy-list.tsx # 階層リストプラグイン
 ├── ScatterChart.tsx       # 散布図コンポーネント
@@ -691,7 +724,8 @@ export function MyCustomChart({ clusterList, argumentList, filteredArgumentIds }
 
 ```tsx
 // apps/public-viewer/components/charts/plugins/my-custom.tsx
-import { MyCustomIcon } from "@/components/icons/ViewIcons";
+// アイコンは既存のものを使う例。独自のアイコンを使う場合は components/icons/ViewIcons.tsx に追加する
+import { ListViewIcon as MyCustomIcon } from "@/components/icons/ViewIcons";
 import { MyCustomChart } from "../MyCustomChart";
 import type { ChartPlugin, ChartRenderContext } from "./types";
 
@@ -704,7 +738,7 @@ export const myCustomPlugin: ChartPlugin = {
     icon: MyCustomIcon,                 // アイコンコンポーネント
     modes: [                            // このプラグインが提供するモード
       {
-        id: "customView",               // モードID（ChartTypeに追加が必要）
+        id: "customView",               // モードID（レポートの enabledCharts に加えるID。Step 5 参照）
         label: "カスタム",              // 表示ラベル
         icon: MyCustomIcon,
       },
@@ -739,6 +773,7 @@ ChartType は既知のID + 任意文字列を許容するため、サーバや�
 // apps/public-viewer/type.ts
 export type ChartType =
   | "scatterAll"
+  | "scatterDetail"
   | "scatterDensity"
   | "treemap"
   | "hierarchyList"
@@ -756,6 +791,39 @@ export function loadBuiltinChartPlugins(): void {
   chartRegistry.register(myCustomPlugin);
 }
 ```
+
+### Step 5: レポートで表示を有効にする
+
+レジストリに登録しただけでは、新しいモードはどのレポートのタブにも表示されません。公開ビューアは、レポートの可視化設定 `enabledCharts` に含まれるモードだけを表示するためです（[レポートごとのチャート設定](#レポートごとのチャート設定)）。
+
+- 可視化設定を保存していないレポートでは、ビューアの既定値（`DEFAULT_ENABLED_CHARTS` の `scatterAll` / `scatterDetail` / `scatterDensity` / `treemap` に `hierarchyList` を加えたもの）が使われます
+- 管理画面の可視化設定ダイアログは、選べるチャートが固定の一覧（`AVAILABLE_CHARTS`）なので、新しいモードを選べません
+
+表示するレポートごとに、管理用 API（`PATCH /admin/reports/{slug}/visualization-config`）で `enabledCharts`（必要なら `chartOrder`・`defaultChart`）にモード ID を加えます。この API は設定全体を置き換えます（送らなかった項目は既定値に戻ります）。先に `GET /admin/reports/{slug}/visualization-config` で今の設定を取得し、それにモード ID を加えて送ってください。
+
+```bash
+# 今の設定を取得し、enabledCharts に customView を加えて送り直す
+# （設定が未保存なら、ビューアの既定の 5 種に customView を加えたものを保存する）
+curl -s "http://localhost:8000/admin/reports/<slug>/visualization-config" \
+  -H "x-api-key: <ADMIN_API_KEY>" \
+  | jq '(.visualizationConfig // {"version": "1", "enabledCharts": ["scatterAll", "scatterDetail", "scatterDensity", "treemap", "hierarchyList"]})
+        | .enabledCharts += ["customView"]' \
+  | curl -s -X PATCH "http://localhost:8000/admin/reports/<slug>/visualization-config" \
+      -H "x-api-key: <ADMIN_API_KEY>" \
+      -H "Content-Type: application/json" \
+      -d @-
+```
+
+API で加えたモード ID は、その後に管理画面のダイアログで設定を保存しても残ります。
+
+すべてのレポートで既定で表示したい場合は、ビューアの既定値を変更します。既定値は次のように複数の場所にあり、それぞれ値が違うので注意してください。
+
+| 場所 | 使われる場面 |
+|------|------------|
+| `apps/public-viewer/components/charts/SelectChartButton.tsx` の `DEFAULT_ENABLED_CHARTS` | 可視化設定が無いときの既定（下の `DEFAULT_READING_CHARTS` の元） |
+| `apps/public-viewer/components/report/ClientContainer.tsx` の `DEFAULT_READING_CHARTS` | 可視化設定を保存していないレポートを表示するとき |
+| `apps/api/src/schemas/visualization_config.py` の `DEFAULT_REPORT_DISPLAY_CONFIG` | 保存された可視化設定を読めなかったとき |
+| `apps/admin/app/_components/ReportCard/VisualizationConfigDialog/VisualizationConfigDialog.tsx` の `DEFAULT_CONFIG` と `AVAILABLE_CHARTS` | 管理画面のダイアログの初期値と選択肢 |
 
 ## プラグインインターフェース
 
@@ -839,11 +907,12 @@ interface ChartRenderContext {
 
 ### 1. Scatter Plugin (`scatter`)
 
-散布図を表示するプラグイン。2つのモードを提供：
+散布図を表示するプラグイン。3つのモードを提供：
 
 | モード | 説明 |
 |--------|------|
 | `scatterAll` | 全データの散布図表示 |
+| `scatterDetail` | 詳細クラスタ（下の階層）で色分けした散布図表示 |
 | `scatterDensity` | 密度フィルター適用済み表示（条件付きで無効化） |
 
 ### 2. Treemap Plugin (`treemap`)
