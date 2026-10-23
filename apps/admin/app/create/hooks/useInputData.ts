@@ -1,9 +1,9 @@
 import { toaster } from "@/components/ui/toaster";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { deleteSpreadsheetData, getSpreadsheetData, importSpreadsheet } from "../api/spreadsheet";
 import { parseCsv } from "../parseCsv";
 import type { InputType, SpreadsheetComment } from "../types";
-import { getBestCommentColumn } from "../utils/columnScorer";
+import { getBestCommentColumn, getCsvColumnCandidates } from "../utils/columnScorer";
 import { showErrorToast } from "../utils/error-handler";
 
 /**
@@ -12,6 +12,9 @@ import { showErrorToast } from "../utils/error-handler";
 export function useInputData(onDataLoaded: (commentCount: number) => void) {
   // 入力タイプの状態
   const [inputType, setInputType] = useState<InputType>("file");
+  // 非同期の処理（CSV の解析など）が終わった時点の入力タイプを、再描画を待たずに参照するための控え
+  const inputTypeRef = useRef<InputType>("file");
+  const getInputType = useCallback(() => inputTypeRef.current, []);
 
   // CSVファイル関連の状態
   const [csv, setCsv] = useState<File | null>(null);
@@ -27,6 +30,8 @@ export function useInputData(onDataLoaded: (commentCount: number) => void) {
   const [csvColumns, setCsvColumns] = useState<string[]>([]);
   const [selectedCommentColumn, setSelectedCommentColumn] = useState<string>("");
   const [selectedAttributeColumns, setSelectedAttributeColumns] = useState<string[]>([]);
+  // CSV タブに戻ったときの再解析が終わっていないか（終わるまで作成を受け付けない）
+  const [csvParsing, setCsvParsing] = useState<boolean>(false);
 
   /**
    * 最適なカラムを選択する関数
@@ -48,29 +53,18 @@ export function useInputData(onDataLoaded: (commentCount: number) => void) {
     [onDataLoaded],
   );
 
+  // CSV タブに戻ったときの再解析の世代。CSV の差し替え・削除やタブ切替のたびに進め、古い解析結果を捨てる
+  const csvReloadVersion = useRef(0);
+
   /**
-   * CSVファイル変更時のハンドラー
+   * CSVファイルの設定。
+   * 解析と列候補の決定は CsvFileTab が世代管理つきで 1 回だけ行うので、ここでは state を入れるだけにする。
    */
-  const handleCsvChange = useCallback(
-    async (file: File | null) => {
-      setCsv(file);
-      if (file) {
-        try {
-          const parsed = await parseCsv(file);
-          if (parsed.length > 0) {
-            selectBestColumn(parsed as unknown as Record<string, unknown>[]);
-          }
-        } catch (error) {
-          showErrorToast(toaster, error, "CSVファイルの読み込みに失敗しました");
-        }
-      } else {
-        setCsvColumns([]);
-        setSelectedCommentColumn("");
-        setSelectedAttributeColumns([]);
-      }
-    },
-    [selectBestColumn],
-  );
+  const handleCsvChange = useCallback((file: File | null) => {
+    ++csvReloadVersion.current;
+    setCsvParsing(false);
+    setCsv(file);
+  }, []);
 
   /**
    * スプレッドシートのインポート
@@ -151,14 +145,31 @@ export function useInputData(onDataLoaded: (commentCount: number) => void) {
   const handleInputTypeChange = useCallback(
     (newType: InputType) => {
       setInputType(newType);
+      inputTypeRef.current = newType;
+      const version = ++csvReloadVersion.current;
+      setCsvParsing(false);
 
       if (newType === "file" && csv) {
-        // CSVのカラムを再構築
-        parseCsv(csv).then((parsed) => {
-          if (parsed.length > 0) {
-            selectBestColumn(parsed as unknown as Record<string, unknown>[]);
-          }
-        });
+        // 解析が終わるまで、移動元のタブの列・コメント列の選択を残さない
+        setCsvColumns([]);
+        setSelectedCommentColumn("");
+        setCsvParsing(true);
+        // CSVのカラムを再構築（CsvFileTab と同じく合成 id 列は候補に入れない）
+        parseCsv(csv)
+          .then((parsed) => {
+            if (version !== csvReloadVersion.current) return;
+            setCsvParsing(false);
+            if (parsed.length === 0) return;
+            const rows = parsed as unknown as Record<string, unknown>[];
+            setCsvColumns(getCsvColumnCandidates(rows));
+            setSelectedCommentColumn(getBestCommentColumn(rows) || "");
+            onDataLoaded(rows.length);
+          })
+          .catch((error) => {
+            if (version !== csvReloadVersion.current) return;
+            setCsvParsing(false);
+            showErrorToast(toaster, error, "CSVファイルの読み込みに失敗しました");
+          });
       } else if (newType === "spreadsheet" && spreadsheetData.length > 0) {
         // スプレッドシートのカラムを再構築
         selectBestColumn(spreadsheetData as unknown as Record<string, unknown>[]);
@@ -169,7 +180,7 @@ export function useInputData(onDataLoaded: (commentCount: number) => void) {
         setSelectedAttributeColumns([]);
       }
     },
-    [csv, spreadsheetData, selectBestColumn],
+    [csv, spreadsheetData, selectBestColumn, onDataLoaded],
   );
 
   /**
@@ -180,6 +191,7 @@ export function useInputData(onDataLoaded: (commentCount: number) => void) {
   return {
     inputType,
     csv,
+    csvParsing,
     spreadsheetUrl,
     spreadsheetImported,
     spreadsheetLoading,
@@ -190,6 +202,7 @@ export function useInputData(onDataLoaded: (commentCount: number) => void) {
     selectedAttributeColumns,
     canImport,
     setInputType: handleInputTypeChange,
+    getInputType,
     setCsv: handleCsvChange,
     setSpreadsheetUrl,
     setSelectedCommentColumn,

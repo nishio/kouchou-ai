@@ -67,6 +67,17 @@ export default function Page() {
       pluginImported = pluginState?.imported ?? false;
     }
 
+    // CSV タブに戻った直後の再解析が終わるまでは、列の選択が決まっていないので作成しない
+    if (inputData.inputType === "file" && inputData.csvParsing) {
+      toaster.create({
+        type: "warning",
+        title: "CSVを読み込み中です",
+        description: "読み込みが完了してから作成してください",
+      });
+      setLoading(false);
+      return;
+    }
+
     // フォーム入力値のバリデーション
     const validation = validateFormValues({
       input: basicInfo.input,
@@ -331,6 +342,7 @@ export default function Page() {
                     basicInfo.fillEmptyFromCsv(file);
                     inputData.setCsv(file);
                   }}
+                  isActive={() => inputData.getInputType() === "file"}
                   csvColumns={inputData.csvColumns}
                   setCsvColumns={inputData.setCsvColumns}
                   selectedCommentColumn={inputData.selectedCommentColumn}
