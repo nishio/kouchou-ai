@@ -1,5 +1,6 @@
 """Cluster the arguments using UMAP + HDBSCAN and GPT-4."""
 
+import json
 import os
 import pickle
 from importlib import import_module
@@ -187,7 +188,10 @@ def _resolve_reuse_model_path(reuse_value, output_base_dir: str, dataset: str) -
     if os.path.isabs(reuse_value):
         if os.path.isfile(reuse_value):
             return reuse_value
-        raise FileNotFoundError(f"reuse_umap_model に指定された UMAP model が見つかりません: {reuse_value}")
+        raise FileNotFoundError(
+            f"reuse_umap_model に指定された UMAP model が見つかりません: {reuse_value}"
+            + _model_not_saved_hint(reuse_value)
+        )
 
     candidates = [
         os.path.join(output_base_dir, reuse_value),
@@ -203,7 +207,49 @@ def _resolve_reuse_model_path(reuse_value, output_base_dir: str, dataset: str) -
         f"reuse_umap_model に指定した UMAP model が見つかりません: {reuse_value!r}\n"
         f"  探索したパス:\n  {tried}\n"
         "  別レポートの output ディレクトリ名、または umap_model.pkl への相対/絶対パスを指定してください。"
+        + _model_not_saved_hint(os.path.join(output_base_dir, reuse_value))
     )
+
+
+def _model_not_saved_hint(reuse_path: str) -> str:
+    """投影元が save_umap_model: false で作られていれば、その旨をエラー文に添える。
+
+    管理画面（API）で作ったレポートは umap_model.pkl を保存しない。指定は正しいのに
+    「見つかりません」だけでは原因が分からないので、投影元の hierarchical_status.json に
+    残る clustering の設定から判定する。判定できないときは何も添えない。
+    """
+    report_dirs = [reuse_path]
+    if os.path.basename(reuse_path) == UMAP_MODEL_FILENAME:
+        report_dirs.append(os.path.dirname(reuse_path))
+    for report_dir in report_dirs:
+        if _created_without_saving_umap_model(report_dir):
+            return (
+                f"\n  指定したレポート（{report_dir}）は save_umap_model: false で作られたため、"
+                "umap_model.pkl を保存していません（管理画面で作ったレポートはこの設定になります）。"
+                "\n  投影元にするレポートは CLI で作ってください。"
+                "このレポートを作り直すと UMAP を学習し直すので、元の散布図とは別の平面になります。"
+            )
+    return ""
+
+
+def _created_without_saving_umap_model(report_dir: str) -> bool:
+    status_path = os.path.join(report_dir, "hierarchical_status.json")
+    if not os.path.isfile(status_path):
+        return False
+    try:
+        from analysis_core.core.orchestration import collect_previous_jobs
+
+        with open(status_path, encoding="utf-8") as f:
+            status = json.load(f)
+        jobs = collect_previous_jobs(status) if isinstance(status, dict) else []
+    except Exception:
+        # エラー文に添えるだけなので、壊れた status では判定しない
+        return False
+    for job in jobs:
+        if isinstance(job, dict) and job.get("step") == "hierarchical_clustering":
+            params = job.get("params")
+            return isinstance(params, dict) and params.get("save_umap_model") is False
+    return False
 
 
 def compute_umap_embeddings(
@@ -254,12 +300,31 @@ def compute_umap_embeddings(
     return np.asarray(umap_embeds), model, n_features_in
 
 
+def _resolve_save_umap_model(value) -> bool:
+    """config の ``save_umap_model`` を解釈する。未指定（None）なら従来どおり保存する。"""
+    if value is None:
+        return True
+    if isinstance(value, bool):
+        return value
+    raise ValueError(f"save_umap_model には true / false を指定してください: {value!r}")
+
+
+def _remove_stale_umap_model(model_path: str, reuse_model_path: str | None) -> None:
+    if not os.path.exists(model_path):
+        return
+    if reuse_model_path is not None and os.path.realpath(model_path) == os.path.realpath(reuse_model_path):
+        return
+    os.remove(model_path)
+
+
 def hierarchical_clustering(config):
     UMAP, _, KMeans = _load_clustering_dependencies()
 
     dataset = config["output_dir"]
     output_base_dir = config.get("_output_base_dir", "outputs")
     path = f"{output_base_dir}/{dataset}/hierarchical_clusters.csv"
+    # 型の誤りは埋め込みの読み込みや UMAP の学習より前に止める（学習後に気づくと時間が無駄になる）
+    should_save_umap_model = _resolve_save_umap_model(config["hierarchical_clustering"].get("save_umap_model"))
     arguments_df = pl.read_csv(f"{output_base_dir}/{dataset}/args.csv", columns=["arg-id", "argument"])
     arg_ids = arguments_df["arg-id"].to_list()
 
@@ -335,8 +400,15 @@ def hierarchical_clustering(config):
 
     # fit / reuse のいずれでも、使用した model を自レポートの output dir へ保存し、
     # このレポート自体も別レポートの投影元として再利用できるようにする。
+    # model には入力埋め込みの写しと近傍探索の index が入り、6 万件で 1GB を超える。
+    # #515 を使わない Web 経路（API）は save_umap_model: false で保存を止める。
     model_path = f"{output_base_dir}/{dataset}/{UMAP_MODEL_FILENAME}"
-    save_umap_model(model_path, umap_model, n_features_in=n_features_in, n_components=UMAP_N_COMPONENTS)
+    if should_save_umap_model:
+        save_umap_model(model_path, umap_model, n_features_in=n_features_in, n_components=UMAP_N_COMPONENTS)
+    else:
+        # 前回の実行で残った model は今回の座標と食い違うので消す（今回の投影元そのものは残す）
+        _remove_stale_umap_model(model_path, reuse_model_path)
+    del umap_model
 
     cluster_results = hierarchical_clustering_embeddings(
         umap_embeds=umap_embeds,

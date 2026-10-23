@@ -14,7 +14,7 @@ from src.schemas.report_config import ReportConfig
 from src.services import report_status
 from src.services.analysis_config import prune_config_for_mode
 from src.services.model_catalog import EMBEDDING_KIND, models_for_provider
-from src.services.report_launcher import launch_report_generation_from_config
+from src.services.report_launcher import disable_umap_model_saving, launch_report_generation_from_config
 from src.services.report_status import add_new_report_to_status_from_config, delete_report_from_status, slug_exists
 from src.services.report_sync import ReportSyncService
 from src.utils.logger import setup_logger
@@ -445,6 +445,10 @@ def duplicate_report(
         config = _apply_overrides(config, payload.overrides)
         if input_limit_override is not None:
             config.setdefault("extraction", {})["limit"] = input_limit_override
+        # 新規作成と同じく、Web 経路では使わない umap_model.pkl を保存させない。
+        # 複製元の config ファイル（この設定より前に作ったレポートのもの）も、
+        # 埋め込み config から作った config も、ここで 1 回だけ設定する。
+        config = disable_umap_model_saving(config)
 
         # 複製元 config は (a) 既存 config ファイル、(b) hierarchical_result.json 埋め込みの
         # normalize 済み config（この場合 llm_grouping が値入り dict で混入する）のいずれか。
