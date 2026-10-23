@@ -49,6 +49,34 @@ def _is_openai_reasoning_model(model: str | None) -> bool:
     return normalized.startswith(("gpt-5", "gpt-6", "o1", "o3", "o4"))
 
 
+def _is_azure_reasoning_deployment(deployment: str | None) -> bool:
+    """Azure のチャットデプロイが推論モデル（temperature を受け付けない）かどうか
+
+    Azure のデプロイ名は管理者が自由に付けるので、モデル名と一致するとは限らない。
+    1. AZURE_CHATCOMPLETION_REASONING が true / false なら、それに従う（明示指定）
+    2. そうでなければ、AZURE_CHATCOMPLETION_MODEL_NAME（実モデル名）とデプロイ名の
+       どちらかが推論モデル名なら推論モデルとみなす
+
+    推論モデルに temperature=0 を送ると 400 になるが、通常モデルから temperature を外しても
+    決定性が下がるだけで失敗はしない。MODEL_NAME に表示名（例: 'Azure GPT-5 mini'）が入っている
+    既存環境もあるので、どちらか一方でも推論モデルに見えれば外す側に倒す。
+    推論モデルに見えるデプロイ名で通常モデルを使う場合は REASONING=false を明示する。
+    """
+    override = (os.getenv("AZURE_CHATCOMPLETION_REASONING") or "").strip().lower()
+    if override in {"1", "true", "on", "yes"}:
+        return True
+    if override in {"0", "false", "off", "no"}:
+        return False
+    if override and override != "auto":
+        logging.warning(
+            f"AZURE_CHATCOMPLETION_REASONING={override!r} は解釈できないため、モデル名から自動判定します"
+            "（true / false / auto のいずれかを指定してください）"
+        )
+
+    model_name = os.getenv("AZURE_CHATCOMPLETION_MODEL_NAME")
+    return _is_openai_reasoning_model(model_name) or _is_openai_reasoning_model(deployment)
+
+
 def _model_supports_openai_flex(model: str | None) -> bool:
     normalized = _normalize_model_name(model)
     if not normalized:
@@ -246,9 +274,9 @@ def request_to_azure_chatcompletion(
                 "response_format": json_schema,
                 "timeout": timeout_seconds,
             }
-            # 推論モデル(o系/GPT-5,6系)は temperature 指定を拒否するため、
-            # OpenAI 経路と同様に deployment 名で判定して temperature を外す。
-            if not _is_openai_reasoning_model(deployment):
+            # 推論モデル(o系/GPT-5,6系)は temperature 指定を拒否するため外す。
+            # 判定は明示指定、なければ実モデル名・デプロイ名のどちらかが推論モデル名か。
+            if not _is_azure_reasoning_deployment(deployment):
                 parse_kwargs["temperature"] = 0
             response = client.beta.chat.completions.parse(**parse_kwargs)
             if hasattr(response, "usage") and response.usage:
@@ -275,9 +303,9 @@ def request_to_azure_chatcompletion(
                 "seed": 0,
                 "timeout": timeout_seconds,
             }
-            # 推論モデル(o系/GPT-5,6系)は temperature 指定を拒否するため、
-            # OpenAI 経路と同様に deployment 名で判定して temperature を外す。
-            if not _is_openai_reasoning_model(deployment):
+            # 推論モデル(o系/GPT-5,6系)は temperature 指定を拒否するため外す。
+            # 判定は明示指定、なければ実モデル名・デプロイ名のどちらかが推論モデル名か。
+            if not _is_azure_reasoning_deployment(deployment):
                 payload["temperature"] = 0
             if response_format:
                 payload["response_format"] = response_format
