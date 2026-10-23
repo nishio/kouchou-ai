@@ -268,20 +268,22 @@ export function ScatterChart({
   onHoverRef.current = onHover;
 
   // arg_id → アノテーションインデックスのマッピング（イベントハンドラからref経由で参照）
+  // 注釈は意見が 0 件のクラスタを除いて作るので、インデックスも同じ順のクラスタ列で数える
   const argToAnnotationIndexRef = useRef<Map<string, number[]>>(new Map());
   const argToAnnotationIndex = useMemo(() => {
+    const labelledClusters = targetClusters.filter((cluster) => argumentsOf(cluster.id).length > 0);
     const map = new Map<string, number[]>();
     for (const arg of allArguments) {
       const indices: number[] = [];
-      for (let i = 0; i < targetClusters.length; i++) {
-        if (arg.cluster_ids.includes(targetClusters[i].id)) {
+      for (let i = 0; i < labelledClusters.length; i++) {
+        if (arg.cluster_ids.includes(labelledClusters[i].id)) {
           indices.push(i);
         }
       }
       if (indices.length > 0) map.set(arg.arg_id, indices);
     }
     return map;
-  }, [allArguments, targetClusters]);
+  }, [allArguments, targetClusters, argumentsOf]);
   argToAnnotationIndexRef.current = argToAnnotationIndex;
 
   // Plotly gd 要素の参照とハンドラを保持し、差し替え・アンマウント時にクリーンアップする
@@ -600,35 +602,39 @@ export function ScatterChart({
   const allPlotData = useMemo(() => [...hullTraces, ...plotData], [hullTraces, plotData]);
 
   // アノテーションの設定
+  // 意見が 0 件のクラスタ（指定カテゴリ分類で残った「その他 0件」など）は中心が決まらないので、
+  // ラベルを描かない。描くと (0,0) に置かれ、注釈も軸範囲に含まれるので点群が縮む。
   const annotations: Partial<Annotation>[] = useMemo(
     () =>
       showClusterLabels
-        ? clusterDataSets.map((dataSet) => {
-            // フィルターされていても背景色を維持（灰色のクラスターでもラベルは元の色で表示）
-            // @ts-ignore allFilteredプロパティが存在する前提で処理（TypeScript型定義に追加済み）
-            const isAllFiltered =
-              filteredArgumentIds &&
-              (separateDataByFilter(dataSet.cluster).matching.length === 0 || dataSet.cluster.allFiltered);
-            const bgColor = isAllFiltered
-              ? clusterColorMapA[dataSet.cluster.id].replace(/[0-9a-f]{2}$/i, "cc") // クラスター全体がフィルターされた場合も薄くする
-              : clusterColorMapA[dataSet.cluster.id];
+        ? clusterDataSets
+            .filter((dataSet) => dataSet.allClusterArguments.length > 0)
+            .map((dataSet) => {
+              // フィルターされていても背景色を維持（灰色のクラスターでもラベルは元の色で表示）
+              // @ts-ignore allFilteredプロパティが存在する前提で処理（TypeScript型定義に追加済み）
+              const isAllFiltered =
+                filteredArgumentIds &&
+                (separateDataByFilter(dataSet.cluster).matching.length === 0 || dataSet.cluster.allFiltered);
+              const bgColor = isAllFiltered
+                ? clusterColorMapA[dataSet.cluster.id].replace(/[0-9a-f]{2}$/i, "cc") // クラスター全体がフィルターされた場合も薄くする
+                : clusterColorMapA[dataSet.cluster.id];
 
-            return {
-              x: dataSet.centerX,
-              y: dataSet.centerY,
-              text: wrapLabelText(dataSet.cluster.label), // ラベルを折り返し処理
-              showarrow: false,
-              font: {
-                color: "white",
-                size: annotationFontsize,
-                weight: 700,
-              },
-              bgcolor: bgColor,
-              borderpad: 10,
-              width: annotationLabelWidth,
-              align: "left" as const,
-            };
-          })
+              return {
+                x: dataSet.centerX,
+                y: dataSet.centerY,
+                text: wrapLabelText(dataSet.cluster.label), // ラベルを折り返し処理
+                showarrow: false,
+                font: {
+                  color: "white",
+                  size: annotationFontsize,
+                  weight: 700,
+                },
+                bgcolor: bgColor,
+                borderpad: 10,
+                width: annotationLabelWidth,
+                align: "left" as const,
+              };
+            })
         : [],
     [showClusterLabels, clusterDataSets, filteredArgumentIds, separateDataByFilter, clusterColorMapA],
   );
