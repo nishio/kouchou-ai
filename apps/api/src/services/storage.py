@@ -1,4 +1,5 @@
 import os
+import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
 
@@ -10,6 +11,11 @@ from src.config import settings
 from src.utils.logger import setup_logger
 
 logger = setup_logger()
+
+# ダウンロード途中の一時ファイルの拡張子。ReportSyncService.PRESERVED_REPORT_FILES（".json" など）や
+# upload / download の target_suffixes のどれにも当たらない名前にして、プロセスが途中で落ちて残っても
+# 成果物として保持・アップロードされないようにする（_cleanup_report_files では削除される）。
+DOWNLOAD_TEMP_SUFFIX = ".download-tmp"
 
 
 class StorageService(ABC):
@@ -40,12 +46,20 @@ class StorageService(ABC):
         pass
 
     @abstractmethod
-    def download_directory(self, remote_dir_prefix: str, local_dir_path: str, target_suffixes: tuple[str, ...] = ()):
+    def download_directory(
+        self,
+        remote_dir_prefix: str,
+        local_dir_path: str,
+        target_suffixes: tuple[str, ...] = (),
+        exclude_subdirs: tuple[str, ...] = (),
+    ):
         """ストレージから指定プレフィックスに一致するファイル群をディレクトリとしてダウンロードする
 
         Args:
             remote_dir_prefix: ダウンロードするストレージ上のディレクトリプレフィックス
             local_dir_path: ローカルの保存先ディレクトリパス
+            target_suffixes: ダウンロード対象とするファイルの拡張子リスト（省略可能）
+            exclude_subdirs: プレフィックス直下で取得しないディレクトリ名（完全一致。省略可能）
         """
         pass
 
@@ -89,7 +103,11 @@ class LocalStorageService(StorageService):
         return True
 
     def download_directory(
-        self, remote_dir_prefix: str, local_dir_path: str, target_suffixes: tuple[str, ...] = ()
+        self,
+        remote_dir_prefix: str,
+        local_dir_path: str,
+        target_suffixes: tuple[str, ...] = (),
+        exclude_subdirs: tuple[str, ...] = (),
     ) -> bool:
         """ローカルストレージの場合はファイル一覧取得は不要
 
@@ -97,6 +115,7 @@ class LocalStorageService(StorageService):
             remote_dir_prefix: ダウンロード対象のディレクトリプレフィックス
             local_dir_path: ダウンロード先のローカルディレクトリパス
             target_suffixes: ダウンロード対象とするファイルの拡張子リスト（省略可能）
+            exclude_subdirs: プレフィックス直下で取得しないディレクトリ名（省略可能）
         """
         logger.debug(
             f"LocalStorageService: download_directory は何もしません - {remote_dir_prefix} -> {local_dir_path}"
@@ -241,6 +260,9 @@ class AzureBlobStorageService(StorageService):
                     )
                     if not self._has_target_suffix(remote_blob_path, target_suffixes):
                         continue
+                    if filename.endswith(DOWNLOAD_TEMP_SUFFIX):
+                        # 別のダウンロードの途中、またはプロセスが落ちて残った一時ファイル
+                        continue
 
                     files_processed += 1
                     success = self.upload_file(file_path, remote_blob_path, skip_if_same=skip_if_same)
@@ -288,9 +310,22 @@ class AzureBlobStorageService(StorageService):
                 )
                 return False
 
-            os.makedirs(os.path.dirname(local_file_path), exist_ok=True) if os.path.dirname(local_file_path) else None
-            with open(local_file_path, "wb") as file:
-                file.write(downloader.readall())
+            local_dir = os.path.dirname(local_file_path)
+            if local_dir:
+                os.makedirs(local_dir, exist_ok=True)
+            # 保存先に直接書くと、読み込みが途中で失敗したときに 0 バイトや途中までのファイルが残り、
+            # 呼び出し側が「取得済み」とみなしてしまう。同じディレクトリの一時ファイルに書き切ってから
+            # os.replace で置き換え、失敗したら一時ファイルを消す（既存のファイルはそのまま残る）。
+            temp_path = os.path.join(
+                local_dir, f".{os.path.basename(local_file_path)}.{uuid.uuid4().hex}{DOWNLOAD_TEMP_SUFFIX}"
+            )
+            try:
+                with open(temp_path, "xb") as file:
+                    downloader.readinto(file)
+                os.replace(temp_path, local_file_path)
+            finally:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
             logger.info(f"ファイルをダウンロードしました。パス: '{remote_blob_path}' ローカルパス: '{local_file_path}'")
             return True
         except Exception as e:
@@ -301,7 +336,11 @@ class AzureBlobStorageService(StorageService):
             return False
 
     def download_directory(
-        self, remote_dir_prefix: str, local_dir_path: str, target_suffixes: tuple[str, ...] = ()
+        self,
+        remote_dir_prefix: str,
+        local_dir_path: str,
+        target_suffixes: tuple[str, ...] = (),
+        exclude_subdirs: tuple[str, ...] = (),
     ) -> bool:
         """ディレクトリをダウンロードする
 
@@ -312,6 +351,9 @@ class AzureBlobStorageService(StorageService):
             local_dir_path: ローカルの保存先ディレクトリパス（文字列）
             target_suffixes: ダウンロード対象とするファイルの拡張子リスト（省略可能）
                 指定された場合、リストに含まれる拡張子を持つファイルのみがダウンロードされます
+            exclude_subdirs: プレフィックス直下で取得しないディレクトリ名（省略可能）
+                ディレクトリ名と完全一致したものだけを除外します（前方一致ではありません）。
+                該当ファイルがすべて除外対象だった場合も、失敗（ファイル無し）とはみなしません
 
         Raises:
             FileNotFoundError: 一致するファイルが見つからない場合
@@ -334,6 +376,8 @@ class AzureBlobStorageService(StorageService):
                 found = True
                 # プレフィックス部分を除いた相対パスを計算し、ローカルのパスと結合
                 relative_path = blob_name[len(prefix) :] if prefix else blob_name
+                if exclude_subdirs and relative_path.split("/", 1)[0] in exclude_subdirs:
+                    continue
                 local_path = os.path.join(local_dir_path, relative_path)
 
                 os.makedirs(os.path.dirname(local_path), exist_ok=True)
