@@ -526,6 +526,74 @@ def test_azure_logs_redact_user_api_key_argument(azure_env, caplog, no_env_user_
     _assert_logged_without_user_key(caplog, "authentication error")
 
 
+AZURE_CONTENT_FILTER_BODY = {
+    "message": "The response was filtered due to the prompt triggering Azure OpenAI's content management policy.",
+    "type": None,
+    "param": "prompt",
+    "code": "content_filter",
+    "status": 400,
+    "innererror": {
+        "code": "ResponsibleAIPolicyViolation",
+        "content_filter_result": {
+            "hate": {"filtered": True, "severity": "medium"},
+            "jailbreak": {"detected": False, "filtered": False},
+            "self_harm": {"filtered": False, "severity": "safe"},
+            "sexual": {"filtered": False, "severity": "safe"},
+            "violence": {"filtered": False, "severity": "safe"},
+        },
+    },
+}
+
+
+def test_azure_prompt_content_filter_raises_safety_block_error(azure_env):
+    """Azure は入力がフィルタに当たると 400 を返す。他の 400 と区別して安全ブロックにする。"""
+    import openai
+
+    client = MagicMock()
+    client.chat.completions.create.side_effect = _openai_sdk_error(
+        openai.BadRequestError, 400, body=AZURE_CONTENT_FILTER_BODY
+    )
+    with patch.object(llm, "AzureOpenAI", return_value=client):
+        with pytest.raises(llm.LLMSafetyBlockError, match=r"content filter \(hate\)") as error:
+            llm.request_to_azure_chatcompletion([{"role": "user", "content": "hi"}])
+    assert isinstance(error.value.__cause__, openai.BadRequestError)
+
+
+@pytest.mark.parametrize("provider", ["openai", "azure"])
+def test_structured_output_content_filter_raises_safety_block_error(provider, monkeypatch, azure_env):
+    """構造化出力（parse）の経路では、SDK が ContentFilterFinishReasonError を先に送出する。これも安全ブロックにする。"""
+    import openai
+
+    client = MagicMock()
+    client.beta.chat.completions.parse.side_effect = openai.ContentFilterFinishReasonError()
+    if provider == "azure":
+        with patch.object(llm, "AzureOpenAI", return_value=client):
+            with pytest.raises(llm.LLMSafetyBlockError, match="finish_reason=content_filter") as error:
+                llm.request_to_azure_chatcompletion(
+                    [{"role": "user", "content": "hi"}], json_schema=extraction.ExtractionResponse
+                )
+    else:
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-test-0000000000")
+        with patch.object(llm, "OpenAI", return_value=client):
+            with pytest.raises(llm.LLMSafetyBlockError, match="finish_reason=content_filter") as error:
+                llm.request_to_openai(
+                    [{"role": "user", "content": "hi"}], model="gpt-4o", json_schema=extraction.ExtractionResponse
+                )
+    assert isinstance(error.value.__cause__, openai.ContentFilterFinishReasonError)
+
+
+def test_azure_other_bad_request_stays_bad_request(azure_env):
+    import openai
+
+    client = MagicMock()
+    client.chat.completions.create.side_effect = _openai_sdk_error(
+        openai.BadRequestError, 400, body={"code": "invalid_request_error", "message": "bad parameter"}
+    )
+    with patch.object(llm, "AzureOpenAI", return_value=client):
+        with pytest.raises(openai.BadRequestError):
+            llm.request_to_azure_chatcompletion([{"role": "user", "content": "hi"}])
+
+
 def test_gemini_logs_redact_user_api_key_argument(monkeypatch, caplog, no_env_user_key):
     from google.genai import errors as real_genai_errors
 
