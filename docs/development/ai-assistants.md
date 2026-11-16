@@ -36,6 +36,8 @@ skills/kouchou-ai-testing/SKILL.mdを読んでから実装・検証してくだ�
 
 Claude Codeでは`CLAUDE.md`が入口です。Codexにも上記のように明示しておけば、自動読込の設定に依存せず参照先を伝えられます。
 
+GitHub Copilotは`.github/copilot-instructions.md`を自動で読み込みます。このファイルは、上の読む順番と守ることを短くまとめた索引で、手順そのものは`CONTRIBUTING.md`・このページ・skillsを正本とします。正本を変えたときは、索引の参照先が古くなっていないかも確認してください。
+
 ### Codexのスキル一覧から使いたい場合（任意）
 
 現在の[公式スキル案内](https://learn.chatgpt.com/docs/build-skills)では、リポジトリ内の`.agents/skills`が探索対象です。本repoの正本は`skills/`なので、macOS / Linuxではrepoルートで次のようにリンクできます。既存の同名リンク・ディレクトリがある場合は、先に内容を確認してください。
