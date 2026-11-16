@@ -31,11 +31,39 @@
 1. **まず試す・非技術者が 1 台で動かす** → GUI 中心のセットアップ（下記 OS 別ガイド）
 2. **開発・本格運用・複数人で使う** → Docker Compose で起動（[クイックスタート](../self-hosting/quickstart.md)）
 
+どちらも Docker を使います。Docker Desktop を使えない場合は、下の「[Docker Desktop を使えない場合](#docker-desktop-を使えない場合)」を見てください。
+
 OS 別のセットアップガイド:
 
 - [Windows セットアップ](../self-hosting/windows-setup.md)
 - [Mac セットアップ](../self-hosting/mac-setup.md)
 - [Linux セットアップ](../self-hosting/linux-setup.md)
+
+### Docker Desktop を使えない場合
+
+組織の利用条件・ライセンス・インストール権限などで Docker Desktop を入れられない場合は、次から選びます。組織の PC では、権限や利用条件を回避して進めず、IT 管理者に確認してください。
+
+| 経路 | 必要なソフト | API キーの置き場所 | できること・注意 |
+| --- | --- | --- | --- |
+| **CLI（分析コア）** | Python 3.12 以上 | シェルの環境変数、または実行するディレクトリの `.env` | Docker を使わずに分析し、`report.html` を出せます。管理画面・閲覧画面はありません。[CLI クイックスタート](cli-quickstart.md) |
+| **API と管理画面を Docker なしで起動** | Python（rye）・Node.js（pnpm） | `apps/api/.env` と `apps/admin/.env` | [クイックスタート](../self-hosting/quickstart.md)の「ローカル開発（Dockerを使わずに起動）」。開発者向けの手順で、閲覧画面（public-viewer）は含みません |
+| **Linux の Docker Engine** | Docker Engine・Docker Compose v2 | リポジトリ直下の `.env` | Docker Desktop ではなく Docker Engine を使う手順です。[Linux セットアップ](../self-hosting/linux-setup.md) |
+| **ブラウザで動く serverless 版** | ブラウザ | serverless 版の画面で入力 | 別プロジェクトで、本体と同じ機能・設定を保証しません。キーとデータの扱いはリンク先の説明を確認してください。[serverless 版](https://github.com/tokoroten/kouchou-ai-serverless) |
+
+Windows の WSL2 上に Docker Engine を入れる経路や、Podman の compose 互換で起動する経路は、まだ動作を確かめていません（[#496](https://github.com/digitaldemocracy2030/kouchou-ai/issues/496) で確認中）。この案内では動作を保証しません。
+
+どの経路でも、入力したコメントは選んだ LLM のプロバイダへ送られます。送信先と、外部に送らない構成（ローカル LLM）の条件は [導入を検討する方へ](adoption-guide.md) の 1 章を参照してください。
+
+## 起動のしかた別のつまずきやすい点
+
+設定ファイルの置き場所と、設定を変えた後にやることは、起動のしかたによって違います。
+
+| 起動のしかた | 設定の置き場所 | 設定を変えた後 | ほかに気をつけること |
+| --- | --- | --- | --- |
+| **セットアップスクリプト**（`setup_win.bat` / `setup_mac.sh` / `setup_linux.sh`） | リポジトリ直下の `.env`（スクリプトが作る） | スクリプトをもう一度実行する（作り直しと起動まで行う）。`start_*` はイメージを作り直さないので、`.env` を手で直しても `NEXT_PUBLIC_` で始まる値などは反映されません | スクリプトを再実行すると、既存の `.env` は上書きされます。手で足した設定は控えておいてください |
+| **Docker Compose**（[クイックスタート](../self-hosting/quickstart.md)） | リポジトリ直下の `.env` | `docker compose up -d --build` で作り直す。`NEXT_PUBLIC_` で始まる値などはイメージのビルド時に埋め込まれるため、`--build` が要ります | `docker compose restart` では `.env` を読み直しません |
+| **Docker を使わずに起動**（API と管理画面） | API は `apps/api/.env`（API を起動するディレクトリからの相対パス。環境変数 `ENV_FILE` で別のファイルを指せる）、管理画面は `apps/admin/.env` | API（`make run`）と管理画面（`pnpm dev`）を起動し直す | `packages/analysis-core` を editable install しないと `No module named analysis_core` で失敗します。`apps/admin/.env` の `NEXT_PUBLIC_ADMIN_API_KEY` は API の `ADMIN_API_KEY` と同じ値にします |
+| **CLI**（[CLI クイックスタート](cli-quickstart.md)） | シェルの環境変数、または実行するディレクトリ（か、その親）の `.env` | 次の実行から反映されます | シェルで `export` した値があると、`.env` の値より優先されます。古いキーが残っていないか確認してください |
 
 ## 関連ページ
 
