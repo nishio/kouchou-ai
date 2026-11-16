@@ -166,3 +166,46 @@ describe("全画面ツールバーの言語切替", () => {
     expect(screen.queryByRole("button", { name: "詳細クラスタ" })).not.toBeInTheDocument();
   });
 });
+
+describe("縦長の狭い画面での通常表示の高さ（#121）", () => {
+  /** 描画された枠のクラスに付いた CSS 規則（emotion が CSSOM に入れたもの）を文字列で集める */
+  function cssRulesFor(element: HTMLElement): string {
+    const classNames = Array.from(element.classList);
+    return Array.from(document.styleSheets)
+      .flatMap((sheet) => Array.from(sheet.cssRules).map((rule) => rule.cssText))
+      .filter((text) => classNames.some((name) => text.includes(`.${name}`)))
+      .join("\n");
+  }
+
+  function renderInline(selectedChart: string) {
+    return render(
+      <Provider>
+        <LanguageProvider>
+          <Chart
+            result={structuredClone(fixture) as unknown as Result}
+            selectedChart={selectedChart}
+            isFullscreen={false}
+            onExitFullscreen={() => {}}
+            showClusterLabels
+            onToggleClusterLabels={() => {}}
+            showConvexHull
+            treemapLevel="0"
+            onTreeZoom={() => {}}
+          />
+        </LanguageProvider>
+      </Provider>,
+    );
+  }
+
+  it("散布図は、狭い画面で幅に合わせた正方形にする", () => {
+    renderInline("scatterAll");
+    const rules = cssRulesFor(screen.getByTestId("chart-area"));
+    expect(rules).toMatch(/@media screen and \(max-width: 600px\)/);
+    expect(rules).toMatch(/aspect-ratio:\s*1\s*\/\s*1/);
+  });
+
+  it("ツリーマップは、狭い画面でも高さを変えない", () => {
+    renderInline("treemap");
+    expect(cssRulesFor(screen.getByTestId("chart-area"))).not.toMatch(/aspect-ratio/);
+  });
+});

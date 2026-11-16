@@ -9,6 +9,14 @@ import { Box, Dialog, Portal } from "@chakra-ui/react";
 // Ensure plugins are loaded
 ensurePluginsLoaded();
 
+/** スマートフォンなどの狭い画面（縦長画面）の判定。ClientContainer の初期表示の切替と共有する */
+export const NARROW_SCREEN_QUERY = "(max-width: 600px)";
+
+/** 散布図のモードか（scatterAll / scatterDetail / scatterDensity） */
+function isScatterChart(chart: string): boolean {
+  return chart.startsWith("scatter");
+}
+
 type ReportProps = {
   /** 描画に使う結果（属性フィルタ・密度フィルタ適用後） */
   result: Result;
@@ -117,7 +125,18 @@ export function Chart({
 
   return (
     <Box mx={"auto"} w={"100%"} maxW={"1200px"} mb={10} border={"1px solid #ccc"}>
-      <Box h={selectedChart === "hierarchyList" ? "auto" : "500px"} mb={0}>
+      <Box
+        h={selectedChart === "hierarchyList" ? "auto" : "500px"}
+        mb={0}
+        data-testid="chart-area"
+        // 縦長の狭い画面で高さ 500px のままだと、横幅より縦に長い枠に点群が引き伸ばされる（#121）。
+        // 散布図だけ幅に合わせた正方形にする
+        css={
+          isScatterChart(selectedChart)
+            ? { [`@media screen and ${NARROW_SCREEN_QUERY}`]: { height: "auto", aspectRatio: "1 / 1" } }
+            : undefined
+        }
+      >
         {plugin?.render({ ...renderContext, onHover: undefined })}
       </Box>
     </Box>

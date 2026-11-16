@@ -9,11 +9,11 @@ import {
   validateVisualizationConfig,
 } from "@/components/charts/plugins";
 import { AttributeFilterDialog } from "@/components/report/AttributeFilterDialog";
-import { Chart } from "@/components/report/Chart";
+import { Chart, NARROW_SCREEN_QUERY } from "@/components/report/Chart";
 import { ClusterOverview } from "@/components/report/ClusterOverview";
 import { DisplaySettingDialog } from "@/components/report/DisplaySettingDialog";
 import type { Cluster, Result } from "@/type";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TreemapDetails } from "./TreemapDetails";
 import {
   type AttributeFilters,
@@ -61,7 +61,7 @@ export function ClientContainer({ result }: Props) {
     if (
       !visualizationConfig?.defaultChart &&
       enabledCharts.includes("hierarchyList") &&
-      window.matchMedia("(max-width: 600px)").matches
+      window.matchMedia(NARROW_SCREEN_QUERY).matches
     ) {
       setSelectedChart("hierarchyList");
     }
@@ -71,6 +71,18 @@ export function ClientContainer({ result }: Props) {
   const [minValue, setMinValue] = useState(defaultParams?.scatterDensity?.minValue ?? 5);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showClusterLabels, setShowClusterLabels] = useState(defaultParams?.showClusterLabels ?? true);
+  // 狭い画面では幅 228px のクラスタラベルが点群を横に押し縮めるので、
+  // レポートで指定が無ければ最初は出さない（#121）。表示設定から ON にできる。
+  // 最初の表示のときだけ判定し、リサイズや再描画で利用者が ON にした設定を戻さない
+  const hasConfiguredClusterLabels = defaultParams?.showClusterLabels !== undefined;
+  const initialClusterLabelsChecked = useRef(false);
+  useEffect(() => {
+    if (initialClusterLabelsChecked.current) return;
+    initialClusterLabelsChecked.current = true;
+    if (!hasConfiguredClusterLabels && window.matchMedia(NARROW_SCREEN_QUERY).matches) {
+      setShowClusterLabels(false);
+    }
+  }, [hasConfiguredClusterLabels]);
   const [showConvexHull, setShowConvexHull] = useState(true);
   const [treemapLevel, setTreemapLevel] = useState("0");
   // 散布図でクリックされたクラスタ（連動文章・一覧のハイライト対象）

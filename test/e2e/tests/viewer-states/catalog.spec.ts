@@ -65,6 +65,34 @@ test("スマホは一覧を初期表示し明示設定を尊重する", async ({
   await expect(page.locator(".js-plotly-plot")).toBeVisible();
 });
 
+test("縦長のスマホでは散布図を正方形にし、ラベルを最初は出さない（#121）", async ({ page }) => {
+  const state = page.getByRole("combobox", { name: "状態", exact: true });
+  const area = page.getByTestId("chart-area");
+  const annotations = page.locator(".js-plotly-plot .annotation");
+
+  // 広い画面は従来どおり（高さ500pxの枠にラベルを出す）
+  await state.selectOption("明示的な散布図");
+  await expect(page.locator(".js-plotly-plot")).toBeVisible();
+  await expect.poll(() => area.evaluate((el) => el.getBoundingClientRect().height)).toBeCloseTo(500, 0);
+  await expect.poll(() => annotations.count()).toBeGreaterThan(0);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  await state.selectOption("明示的な散布図");
+  await expect(page.locator(".js-plotly-plot")).toBeVisible();
+  await expect
+    .poll(() =>
+      area.evaluate((el) => {
+        const { width, height } = el.getBoundingClientRect();
+        return Math.abs(width - height);
+      }),
+    )
+    .toBeLessThan(1);
+  await expect(annotations).toHaveCount(0);
+  await page.screenshot({ path: "test-results/viewer-mobile-scatter.png", fullPage: true });
+});
+
 test("描画更新後もクラウド送信を表示せず階層クリックと説明が同期する", async ({ page }) => {
   await page.getByRole("combobox", { name: "状態", exact: true }).selectOption("明示的な散布図");
   const plot = page.locator(".js-plotly-plot");

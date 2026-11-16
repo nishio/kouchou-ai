@@ -11,10 +11,15 @@ globalThis.structuredClone ??= <T,>(value: T): T => (value === undefined ? value
 // lucide-react は ESM のみ配布で Jest が変換しないため、全アイコンを空コンポーネントにする
 jest.mock("lucide-react", () => new Proxy({}, { get: (_, name) => (name === "__esModule" ? true : () => null) }));
 
-// Plotly を読み込まず、散布図に渡された階層だけを記録する
+// Plotly を読み込まず、散布図に渡された階層とラベル表示だけを記録する
 jest.mock("@/components/charts/ScatterChart", () => ({
-  ScatterChart: (props: { targetLevel: number }) => <div data-testid="scatter" data-level={props.targetLevel} />,
+  ScatterChart: (props: { targetLevel: number; showClusterLabels?: boolean }) => (
+    <div data-testid="scatter" data-level={props.targetLevel} data-labels={String(props.showClusterLabels)} />
+  ),
 }));
+
+// matchMedia が狭い画面（max-width: 600px）に一致するか。テストごとに切り替える
+let narrowScreen = false;
 jest.mock("@/components/charts/TreemapChart", () => ({
   TreemapChart: () => <div data-testid="treemap" />,
 }));
@@ -41,7 +46,7 @@ beforeAll(() => {
   Object.defineProperty(window, "matchMedia", {
     writable: true,
     value: (query: string) => ({
-      matches: false,
+      matches: narrowScreen && query.includes("max-width: 600px"),
       media: query,
       onchange: null,
       addListener: jest.fn(),
@@ -227,5 +232,38 @@ describe("フィルタボタン", () => {
     // 検索中であることがバッジ（有効なフィルタ数）でわかる
     expect(within(screen.getByRole("button", { name: "フィルタ" })).getByText("1")).toBeInTheDocument();
     await flush();
+  });
+});
+
+describe("縦長の狭い画面での散布図（#121）", () => {
+  afterEach(() => {
+    narrowScreen = false;
+  });
+
+  it("狭い画面では、クラスタラベルを最初は出さない", async () => {
+    narrowScreen = true;
+    // 狭い画面の既定は階層リストなので、散布図を既定にしたレポートで確かめる
+    await renderViewer({ visualizationConfig: { defaultChart: "scatterAll" } } as Partial<Result>);
+    expect(screen.getByTestId("scatter")).toHaveAttribute("data-labels", "false");
+  });
+
+  it("レポートでラベル表示を指定していれば、狭い画面でもその指定に従う", async () => {
+    narrowScreen = true;
+    await renderViewer({
+      visualizationConfig: { defaultChart: "scatterAll", params: { showClusterLabels: true } },
+    } as Partial<Result>);
+    expect(screen.getByTestId("scatter")).toHaveAttribute("data-labels", "true");
+  });
+
+  it("広い画面では、従来どおりクラスタラベルを出す", async () => {
+    await renderViewer();
+    expect(screen.getByTestId("scatter")).toHaveAttribute("data-labels", "true");
+  });
+
+  it("狭い画面で既定の表示を指定していないレポートは、従来どおり階層リストで開く", async () => {
+    narrowScreen = true;
+    await renderViewer();
+    expect(screen.getByTestId("hierarchy-list")).toBeInTheDocument();
+    expect(screen.queryByTestId("scatter")).not.toBeInTheDocument();
   });
 });
