@@ -456,6 +456,8 @@ export AZURE_EMBEDDING_VERSION="2023-05-15"
 export AZURE_EMBEDDING_API_KEY="your-key"
 ```
 
+`AZURE_CHATCOMPLETION_VERSION` と `AZURE_EMBEDDING_VERSION` には、Azure OpenAI の **API バージョン**（`2024-10-21` など）を書きます。モデルのバージョン（gpt-4o の `2024-08-06` など）と取り違えると、接続できない・見つからない（404）といったエラーで止まります。チャットの要求がこの 2 種類のエラーで失敗したときは、分析ログと意見抽出の中断のエラー文に、確かめる設定が出ます。
+
 ```json
 {
   "provider": "azure",

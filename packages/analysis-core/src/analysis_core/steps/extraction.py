@@ -44,18 +44,31 @@ FAILURE_EXPLANATIONS = {
 }
 
 
+# Azure で接続できない・見つからない（404）ときに疑う設定。API バージョンの欄にモデルのバージョンを
+# 書いてしまう取り違えが実際にあった（#592）。管理画面の接続確認の案内（apps/api の admin_report.py）と同じ中身
+AZURE_SETTINGS_HINT = (
+    "Azure の設定を確認してください。AZURE_CHATCOMPLETION_VERSION にはモデルのバージョン（例: 2024-08-06）ではなく"
+    " API バージョン（例: 2024-10-21）を設定します。AZURE_CHATCOMPLETION_ENDPOINT・"
+    "AZURE_CHATCOMPLETION_DEPLOYMENT_NAME・API キーが同じ Azure リソースのものかも確認してください。"
+)
+AZURE_SETTINGS_FAILURES = frozenset({"NotFoundError", "APIConnectionError"})
+
+
 class ExtractionBatchError(RuntimeError):
     """A batch contains failed responses and must not reach downstream analysis."""
 
-    def __init__(self, failures, comment_ids=None):
+    def __init__(self, failures, comment_ids=None, provider=None):
         self.failures = failures
         identifiers = {comment_ids[i] if comment_ids is not None else i: reason for i, reason in failures.items()}
         reasons = "、".join(
             f"{name}（{FAILURE_EXPLANATIONS[name]}）" if name in FAILURE_EXPLANATIONS else name
             for name in sorted(set(failures.values()))
         )
+        hint = ""
+        if provider == "azure" and AZURE_SETTINGS_FAILURES & set(failures.values()):
+            hint = " " + AZURE_SETTINGS_HINT
         super().__init__(
-            f"意見抽出に失敗した回答が{len(failures)}件あります。分析を中断しました。理由: {reasons}。"
+            f"意見抽出に失敗した回答が{len(failures)}件あります。分析を中断しました。理由: {reasons}。{hint}"
             f" ({'回答ID' if comment_ids is not None else 'batch index'} / error: {identifiers})"
             " 詳しい理由は分析ログにあります。"
         )
@@ -324,7 +337,7 @@ def extract_batch(
         if config is not None:
             config["extraction_blocked_comment_ids"] = blocked_ids
     if failures:
-        raise ExtractionBatchError(failures, comment_ids)
+        raise ExtractionBatchError(failures, comment_ids, provider=provider)
     return results
 
 

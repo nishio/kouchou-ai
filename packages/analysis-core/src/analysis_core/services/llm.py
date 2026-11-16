@@ -444,6 +444,23 @@ def request_to_azure_chatcompletion(
         raise
     except openai.ContentFilterFinishReasonError as e:
         raise _response_blocked_error("Azure OpenAI") from e
+    except openai.APITimeoutError:
+        # APIConnectionError の子だが、設定の誤りではなく応答の遅れなので案内を付けない
+        raise
+    except (openai.NotFoundError, openai.APIConnectionError) as e:
+        # API バージョンの欄にモデルのバージョンを書くと 404 になり、原因の特定に時間が掛かった（#592）。
+        # 例外の型は変えずに（送り直しや抽出の失敗の分類が型を見るため）、確かめる設定をログに残す
+        logging.error(
+            "Azure OpenAI に接続できないか、デプロイが見つかりません（%s）: %s "
+            "AZURE_CHATCOMPLETION_VERSION にはモデルのバージョンではなく API バージョンを設定します"
+            "（今の値: %s）。AZURE_CHATCOMPLETION_ENDPOINT・AZURE_CHATCOMPLETION_DEPLOYMENT_NAME（今の値: %s）・"
+            "API キーが同じ Azure リソースのものかも確認してください。",
+            type(e).__name__,
+            redact_secrets(str(e), (api_key,)),
+            api_version,
+            deployment,
+        )
+        raise
 
 
 def request_to_gemini_chatcompletion(
