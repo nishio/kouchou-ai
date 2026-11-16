@@ -214,7 +214,20 @@ open outputs/config/report.html  # macOS
 # xdg-open outputs/config/report.html  # Linux
 ```
 
-`config.json` に `"report_url_pattern"` を指定すると、各点クリックで元コメントの URL を開けます（例: `"report_url_pattern": "https://example.com/comments/{comment_id}"`）。
+`config.json` の `hierarchical_visualization` に `report_url_pattern` を書くと、各点クリックで元コメントの URL を開けます。`{comment_id}` の所に入力 CSV の `comment-id` が入ります。`report_html_title` で HTML のタイトルも変えられます（書かなければ `name`）。
+
+```json
+{
+  "input": "example",
+  "question": "...",
+  "hierarchical_visualization": {
+    "report_url_pattern": "https://example.com/comments/{comment_id}",
+    "report_html_title": "〇〇についての意見"
+  }
+}
+```
+
+トップレベルに書くと `Unknown field 'report_url_pattern' in config` で止まります。作成済みのレポートでこの 2 つを変えて同じコマンドを実行し直すと、前の段の結果を使い回して `report.html` だけを作り直します。
 
 `report.html` は CLI の補助出力であり、Web 配信やストレージ同期の canonical artifact ではありません。プロダクトの viewer は `hierarchical_result.json` を入力として描画します。
 

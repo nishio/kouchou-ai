@@ -10,6 +10,8 @@ from analysis_core.prompts import get_default_prompt
 
 HIERARCHICAL_SPECS = _PACKAGE_DIR / "specs" / "hierarchical_specs.json"
 LLM_GROUPING_SPECS = _PACKAGE_DIR / "specs" / "llm_grouping_specs.json"
+# HTML を出す実行（CLI で --without-html を付けない）。initialization は両方の綴りを持つ
+_WITH_HTML = {"without_html": False, "without-html": False}
 
 
 def _initialized_config(tmp_path, specs_path=HIERARCHICAL_SPECS, **overrides):
@@ -123,6 +125,34 @@ class TestParamChangesAreDetected:
         previous = _completed_status(config, specs)
         for job in previous["completed_jobs"]:
             del job["global_params"]
+        _touch_artifacts(tmp_path, config, specs)
+
+        plan = _plan_with_previous(tmp_path, config, previous, specs)
+        assert all(not p["run"] for p in plan.values())
+
+    @pytest.mark.parametrize("option", ["report_url_pattern", "report_html_title"])
+    def test_report_option_change_reruns_only_visualization(self, tmp_path, option):
+        """report.html の設定を変えたら、上流は使い回して visualization だけ作り直す（#954）。"""
+        config = _initialized_config(tmp_path, **_WITH_HTML)
+        specs = load_specs(HIERARCHICAL_SPECS)
+        previous = _completed_status(config, specs)
+        _touch_artifacts(tmp_path, config, specs)
+
+        changed_config = _initialized_config(
+            tmp_path, **_WITH_HTML, hierarchical_visualization={option: "x/{comment_id}"}
+        )
+        plan = _plan_with_previous(tmp_path, changed_config, previous, specs)
+        assert [step for step, p in plan.items() if p["run"]] == ["hierarchical_visualization"]
+
+    def test_records_without_report_options_do_not_force_rerun(self, tmp_path):
+        """report.html の設定を記録していなかった前回の実行でも、既定値のままなら作り直さない。"""
+        config = _initialized_config(tmp_path, **_WITH_HTML)
+        specs = load_specs(HIERARCHICAL_SPECS)
+        previous = _completed_status(config, specs)
+        for job in previous["completed_jobs"]:
+            if job["step"] == "hierarchical_visualization":
+                job["params"].pop("report_url_pattern")
+                job["params"].pop("report_html_title")
         _touch_artifacts(tmp_path, config, specs)
 
         plan = _plan_with_previous(tmp_path, config, previous, specs)

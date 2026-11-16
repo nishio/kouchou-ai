@@ -101,7 +101,7 @@
 - 内部の識別子：`name` / `input` / `output_dir`
 - 「何を隠したか」と隠した属性の値：`hierarchical_aggregation.hidden_properties` の中身（どの属性のどの値を隠す設定にしたか）と、指定した属性の列そのもの。
   集計はこの設定に当たるコメントの元コメント本文を `comments` から除くが、`hierarchical_result.json` の `propertyMap` には指定した属性の値を意見ごとに書いている。`public_result.json` ではその属性を `propertyMap` から列ごと外す。なお、当たるコメントから抽出した意見（`arguments`）は現状どおり残る。この設定を「本文だけを隠す」ものとするか「その値を持つコメント由来の意見ごと隠す」ものとするかは [#1180](https://github.com/digitaldemocracy2030/kouchou-ai/issues/1180) で扱う
-- 表示に使っていないもの：`hierarchical_visualization.replacements`、翻訳の `meta`
+- 表示に使っていないもの：`hierarchical_visualization.replacements`、CLI の `report.html` だけが使う `hierarchical_visualization.report_html_title` / `report_url_pattern`、翻訳の `meta`
 
 ## 互換性の扱い
 

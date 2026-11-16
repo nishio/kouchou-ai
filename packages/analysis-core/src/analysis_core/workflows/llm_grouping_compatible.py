@@ -67,7 +67,10 @@ def create_llm_grouping_workflow(include_visualization: bool = True) -> Workflow
                 # --without-html のときは condition で飛ばす。HTML を出すと決めた実行で
                 # 書き出しに失敗したら、古い report.html が残るので成功扱いにしない
                 condition="${not config.without_html}",
-                config={},
+                config={
+                    "report_html_title": "${config.hierarchical_visualization.report_html_title}",
+                    "report_url_pattern": "${config.hierarchical_visualization.report_url_pattern}",
+                },
             )
         )
 

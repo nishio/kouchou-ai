@@ -206,14 +206,18 @@
         "filename": "report",
         "dependencies": {
             "params": [
-                "replacements"
+                "replacements",
+                "report_html_title",
+                "report_url_pattern"
             ],
             "steps": [
                 "hierarchical_aggregation"
             ]
         },
         "options": {
-            "replacements": []
+            "replacements": [],
+            "report_html_title": null,
+            "report_url_pattern": null
         }
     }
 ]

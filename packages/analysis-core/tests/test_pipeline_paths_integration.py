@@ -482,7 +482,7 @@ class TestVisualizationWorkflowIntegration:
     """The default CLI path (HTML enabled) must finish without extra config keys."""
 
     @staticmethod
-    def _visualization_orchestrator(tmp_path, only="hierarchical_visualization"):
+    def _visualization_orchestrator(tmp_path, only="hierarchical_visualization", extra_config=None):
         from analysis_core.orchestrator import PipelineOrchestrator
 
         input_dir = tmp_path / "inputs"
@@ -516,7 +516,9 @@ class TestVisualizationWorkflowIntegration:
         )
         config_path = tmp_path / "demo.json"
         config_path.write_text(
-            json.dumps({"name": "demo", "input": "demo", "question": "q", "model": "gpt-4o-mini"}),
+            json.dumps(
+                {"name": "demo", "input": "demo", "question": "q", "model": "gpt-4o-mini", **(extra_config or {})}
+            ),
             encoding="utf-8",
         )
 
@@ -538,6 +540,37 @@ class TestVisualizationWorkflowIntegration:
 
         assert result.success, result.error
         assert (output_dir / "demo" / "report.html").exists()
+
+    @pytest.mark.parametrize("analysis_mode", ["hierarchical", "llm_grouping"])
+    def test_report_options_reach_report_html_through_the_workflow(self, tmp_path, analysis_mode):
+        """config の hierarchical_visualization に書いたタイトルと原文リンクが、ワークフロー経由で report.html に届く（#954）。"""
+        orchestrator, output_dir = self._visualization_orchestrator(
+            tmp_path,
+            extra_config={
+                "analysis_mode": analysis_mode,
+                "hierarchical_visualization": {
+                    "report_html_title": "Workflow Title 954",
+                    "report_url_pattern": "https://example.com/comments/{comment_id}",
+                },
+            },
+        )
+        result = orchestrator.run_default()
+
+        assert result.success, result.error
+        html_text = (output_dir / "demo" / "report.html").read_text(encoding="utf-8")
+        assert "<title>Workflow Title 954</title>" in html_text
+        assert "https://example.com/comments/1" in html_text
+        assert "const ENABLE_SOURCE_LINK = true;" in html_text
+
+    def test_report_options_default_to_name_and_no_source_link(self, tmp_path):
+        """どちらも書かなければ、タイトルは name、原文リンクなしのまま（既定値 null で参照の解決が失敗しない）。"""
+        orchestrator, output_dir = self._visualization_orchestrator(tmp_path)
+        result = orchestrator.run_default()
+
+        assert result.success, result.error
+        html_text = (output_dir / "demo" / "report.html").read_text(encoding="utf-8")
+        assert "<title>demo</title>" in html_text
+        assert "const ENABLE_SOURCE_LINK = false;" in html_text
 
     def test_visualization_failure_fails_the_pipeline_and_keeps_old_report_intact(self, tmp_path, monkeypatch):
         """HTML 出力ありで report.html を書けなければ、成功扱いにせず status も error にする。"""

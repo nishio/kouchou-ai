@@ -66,7 +66,10 @@
   {
     "step": "hierarchical_visualization",
     "filename": "report",
-    "dependencies": { "params": ["replacements"], "steps": ["hierarchical_aggregation"] },
-    "options": { "replacements": [] }
+    "dependencies": {
+      "params": ["replacements", "report_html_title", "report_url_pattern"],
+      "steps": ["hierarchical_aggregation"]
+    },
+    "options": { "replacements": [], "report_html_title": null, "report_url_pattern": null }
   }
 ]
