@@ -91,7 +91,16 @@ jobs:
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --query properties.configuration.ingress.fqdn -o tsv)" >> $GITHUB_ENV
 
+      # デプロイ前に、レポートの正本（canonical store）である Azure Blob Storage に読み書きでき、
+      # API の起動時に復元する status/report_status.json を読み戻せることを確かめる。失敗したら止める。
+      # 公開 API の scrape（旧 fetch_reports.py）を基準にしないのは、非公開・限定公開のレポートが見えず、
+      # API ではなく Blob が正本だから（docs/deployment/storage-snapshot-operations.md）。
+      # STORAGE_TYPE を指定しないと既定の local になり、何も確かめずに通ってしまう。
+      # 認証は azure/login のサービスプリンシパル（DefaultAzureCredential → Azure CLI）で、
+      # コンテナへの読み書きの権限（Storage Blob Data Contributor 相当）が要る。
       - name: Blob Storage health check
+        env:
+          STORAGE_TYPE: azure_blob
         run: |
           cd apps/api
           python scripts/test_storage.py

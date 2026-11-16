@@ -60,7 +60,7 @@ cd apps/api
 rye run python scripts/test_storage.py
 ```
 
-`scripts/test_storage.py` では、現在の storage 設定で初期化できること、テストファイルの upload が通ること、同じ blob を download して内容一致することを確認します。
+`scripts/test_storage.py` では、現在の storage 設定で初期化できること、テストファイルの upload が通ること、同じ blob を download して内容一致すること、`status/report_status.json` を読み戻して JSON として読めること（まだ無い新しい環境では警告だけ）を確認します。どれかに失敗すると終了コード 1 で終わります。`STORAGE_TYPE=azure_blob` でないときも失敗にします（`local` では何も確かめられないため）。
 
 実行時は `STORAGE_TYPE`, `AZURE_BLOB_STORAGE_ACCOUNT_NAME`, `AZURE_BLOB_STORAGE_CONTAINER_NAME` に加え、`apps/api/src/config.py` が読む `ADMIN_API_KEY`, `PUBLIC_API_KEY`, `OPENAI_API_KEY` も環境変数として必要です。
 

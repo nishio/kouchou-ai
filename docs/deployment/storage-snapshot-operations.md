@@ -24,11 +24,15 @@ rye run python scripts/test_storage.py
 - storage client を初期化できるか確認する
 - テストファイルを upload できるか確認する
 - 同じ blob を download して内容一致するか確認する
+- API の起動時に復元する `status/report_status.json` を読み戻し、JSON として読めるか確認する（新しい環境でまだ無い場合は警告だけで通す。中身は表示しない）
 
 前提:
 - `.env` または環境変数で `ADMIN_API_KEY`, `PUBLIC_API_KEY`, `OPENAI_API_KEY`, `STORAGE_TYPE`, `AZURE_BLOB_STORAGE_ACCOUNT_NAME`, `AZURE_BLOB_STORAGE_CONTAINER_NAME` を与える
+- `STORAGE_TYPE=azure_blob` にする。`local` のままでは何も確かめられないので失敗として終わる
+- 実行する ID（ローカルなら `az login` したユーザー、deploy ではサービスプリンシパル）に、コンテナへの読み書きの権限（Storage Blob Data Contributor 相当）が要る
 
 これは health check です。レポート全件の退避や復元には使いません。
+どれかの確認に失敗したら終了コード 1 で終わります。Azure の deploy（`.github/workflows/azure-deploy.yml`）はデプロイ前にこれを実行し、失敗したらデプロイを止めます。
 
 ### 2. Storage からローカルへ復元
 
