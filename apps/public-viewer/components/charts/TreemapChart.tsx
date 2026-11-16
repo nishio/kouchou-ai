@@ -32,8 +32,13 @@ export function buildTreemapFigure(
   // フィルタ判定は Set で行う（配列の includes だと全意見 N 件 × フィルタ ID |F| 件の比較になる）
   const filteredIdSet = toIdSet(filteredArgumentIds);
 
+  // 親クラスタが一覧に無い意見は描かない。濃い意見グループの絞り込み（#60）で最下層のクラスタを外したとき、
+  // その中の意見を残すと親の無いノードになり、Plotly が階層を組めない
+  const clusterIds = new Set(clusterList.map((cluster) => cluster.id));
+  const visibleArgumentList = argumentList.filter((arg) => clusterIds.has(arg.cluster_ids[arg.cluster_ids.length - 1]));
+
   // フィルターされていない場合は全ての引数を表示
-  const convertedArgumentList = argumentList.map((arg) => {
+  const convertedArgumentList = visibleArgumentList.map((arg) => {
     const converted = convertArgumentToCluster(arg);
 
     // フィルターが適用されていて、フィルター結果に含まれない場合はグレーにする

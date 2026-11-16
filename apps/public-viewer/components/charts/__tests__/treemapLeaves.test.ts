@@ -107,3 +107,26 @@ describe("buildTreemapFigure の葉の数", () => {
     expect(customdata[(data.ids as string[]).indexOf("1_0")]).toContain("元の件数: 4<br>フィルター後: 1");
   });
 });
+
+describe("buildTreemapFigure で最下層のクラスタを外したとき（濃い意見グループの絞り込み、#60）", () => {
+  // 2_1 を外した一覧（getDenseClusters と同じく、外れるのは最下層のクラスタだけ）
+  const denseClusters = clusters.filter((c) => c.id !== "2_1");
+
+  it("外したクラスタの中の意見は描かず、親の無いノードを作らない", () => {
+    const { data } = buildTreemapFigure(denseClusters, args, "1_0", undefined);
+    const nodeIds = data.ids as string[];
+    const parents = data.parents as string[];
+    expect(nodeIds).not.toContain("2_1");
+    expect(nodeIds).not.toContain("a3");
+    expect(nodeIds).not.toContain("a4");
+    // ルート以外のノードは、どれも一覧の中に親がある
+    for (const parent of parents) {
+      if (parent !== "") expect(nodeIds).toContain(parent);
+    }
+  });
+
+  it("残したクラスタの意見はそのまま描く", () => {
+    const { data } = buildTreemapFigure(denseClusters, args, "2_0", undefined);
+    expect(argIdsIn(data.ids)).toEqual(expect.arrayContaining(["a1", "a2"]));
+  });
+});

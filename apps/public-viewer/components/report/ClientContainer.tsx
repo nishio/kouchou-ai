@@ -73,6 +73,8 @@ export function ClientContainer({ result }: Props) {
   const [showClusterLabels, setShowClusterLabels] = useState(defaultParams?.showClusterLabels ?? true);
   const [showConvexHull, setShowConvexHull] = useState(true);
   const [treemapLevel, setTreemapLevel] = useState("0");
+  // 階層図（ツリーマップ）の最下層にも濃い意見グループの絞り込みを使うか（#60）。既定は OFF
+  const [denseTreemap, setDenseTreemap] = useState(false);
   // 散布図でクリックされたクラスタ（連動文章・一覧のハイライト対象）
   const [selectedClusterId, setSelectedClusterId] = useState<string | null>(null);
 
@@ -142,9 +144,12 @@ export function ClientContainer({ result }: Props) {
 
   // --- フィルタ済み結果を派生計算（stale closure問題を解消） ---
   const filteredResult = useMemo(() => {
-    // 1. 密度フィルタの適用（scatterDensityモードのみ有効）
-    const effectiveMaxDensity = selectedChart === "scatterDensity" ? maxDensity : 1;
-    const effectiveMinValue = selectedChart === "scatterDensity" ? minValue : 0;
+    // 1. 密度フィルタの適用（scatterDensityモードと、表示設定で選んだときの階層図の最下層）
+    // 階層図では、条件に合うクラスタが 0 件なら絞り込まない（最下層が丸ごと消えて上の階層が葉に見えるため）
+    const applyDensity =
+      selectedChart === "scatterDensity" || (selectedChart === "treemap" && denseTreemap && isDenseGroupEnabled);
+    const effectiveMaxDensity = applyDensity ? maxDensity : 1;
+    const effectiveMinValue = applyDensity ? minValue : 0;
     const { filtered: densityFilteredClusters } = getDenseClusters(
       result.clusters || [],
       effectiveMaxDensity,
@@ -173,7 +178,14 @@ export function ClientContainer({ result }: Props) {
       clusters: combinedClusters,
       filteredArgumentIds: filteredArgIds,
     };
-  }, [result, filteredArgIds, selectedChart, maxDensity, minValue]);
+  }, [result, filteredArgIds, selectedChart, maxDensity, minValue, denseTreemap, isDenseGroupEnabled]);
+
+  // 階層図で開いている階層。濃い意見グループの絞り込みで外れたクラスタ（またはその中の意見）を開いていたら、
+  // 一つ上の階層を開く。絞り込みを外せば、元の階層に戻る
+  const visibleTreemapLevel = useMemo(
+    () => resolveVisibleTreemapLevel(treemapLevel, result, filteredResult.clusters),
+    [treemapLevel, result, filteredResult.clusters],
+  );
 
   // --- UIハンドラ群 ---
   const handleApplyAttributeFilters = (
@@ -232,6 +244,8 @@ export function ClientContainer({ result }: Props) {
           onToggleClusterLabels={setShowClusterLabels}
           showConvexHull={showConvexHull}
           onToggleConvexHull={setShowConvexHull}
+          denseTreemap={denseTreemap}
+          onToggleDenseTreemap={enabledCharts.includes("treemap") ? setDenseTreemap : undefined}
         />
       )}
       {openAttributeFilter && (
@@ -273,15 +287,15 @@ export function ClientContainer({ result }: Props) {
         showClusterLabels={showClusterLabels}
         onToggleClusterLabels={setShowClusterLabels}
         showConvexHull={showConvexHull}
-        treemapLevel={treemapLevel}
+        treemapLevel={visibleTreemapLevel}
         onTreeZoom={setTreemapLevel}
         onSelectCluster={setSelectedClusterId}
       />
       {selectedChart === "treemap" ? (
         <TreemapDetails
-          clusters={result.clusters}
+          clusters={filteredResult.clusters}
           arguments={result.arguments}
-          level={treemapLevel}
+          level={visibleTreemapLevel}
           filteredIds={filteredArgIds}
           onNavigate={(id) => {
             setTreemapLevel(id);
@@ -302,6 +316,20 @@ export function ClientContainer({ result }: Props) {
       )}
     </div>
   );
+}
+
+/**
+ * 階層図で開く階層を、表示中のクラスタ（濃い意見グループの絞り込み後）に合わせる。
+ * 絞り込みで外れるのは最下層のクラスタだけなので、外れたクラスタやその中の意見を開いていたら、その親を返す。
+ */
+function resolveVisibleTreemapLevel(level: string, result: Result, visibleClusters: Cluster[]): string {
+  const visibleIds = new Set(visibleClusters.map((c) => c.id));
+  if (visibleIds.has(level)) return level;
+  const opinion = result.arguments.find((arg) => arg.arg_id === level);
+  const clusterId = opinion ? opinion.cluster_ids[opinion.cluster_ids.length - 1] : level;
+  if (opinion && visibleIds.has(clusterId)) return level;
+  const hidden = result.clusters.find((c) => c.id === clusterId);
+  return hidden && visibleIds.has(hidden.parent) ? hidden.parent : level;
 }
 
 function getDenseClusters(

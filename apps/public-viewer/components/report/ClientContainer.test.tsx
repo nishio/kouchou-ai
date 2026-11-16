@@ -15,8 +15,11 @@ jest.mock("lucide-react", () => new Proxy({}, { get: (_, name) => (name === "__e
 jest.mock("@/components/charts/ScatterChart", () => ({
   ScatterChart: (props: { targetLevel: number }) => <div data-testid="scatter" data-level={props.targetLevel} />,
 }));
+// ツリーマップは、渡されたクラスタと開いている階層だけを記録する
 jest.mock("@/components/charts/TreemapChart", () => ({
-  TreemapChart: () => <div data-testid="treemap" />,
+  TreemapChart: (props: { clusterList: { id: string }[]; level: string }) => (
+    <div data-testid="treemap" data-ids={props.clusterList.map((c) => c.id).join(",")} data-level={props.level} />
+  ),
 }));
 jest.mock("@/components/charts/HierarchyListChart", () => ({
   HierarchyListChart: () => <div data-testid="hierarchy-list" />,
@@ -227,5 +230,80 @@ describe("フィルタボタン", () => {
     // 検索中であることがバッジ（有効なフィルタ数）でわかる
     expect(within(screen.getByRole("button", { name: "フィルタ" })).getByText("1")).toBeInTheDocument();
     await flush();
+  });
+});
+
+describe("階層図の最下層を濃い意見グループだけにする（#60）", () => {
+  // fixture の最下層（level 2）は 1 件ずつなので、最小件数 0・上位 20% で 2_26・2_86・2_98 の 3 つが残る
+  const denseConfig = {
+    visualizationConfig: {
+      defaultChart: "treemap",
+      params: { scatterDensity: { maxDensity: 0.2, minValue: 0 } },
+    },
+  } as Partial<Result>;
+  beforeAll(() => {
+    // 一覧から階層を移ると図までスクロールする（jsdom には scrollIntoView が無い）
+    Element.prototype.scrollIntoView = jest.fn();
+  });
+  const treemapIds = () => (screen.getByTestId("treemap").getAttribute("data-ids") ?? "").split(",");
+
+  async function toggleDenseTreemap() {
+    fireEvent.click(screen.getByRole("button", { name: "表示設定" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "階層図の最下層も濃い意見グループだけにする" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await flush();
+  }
+
+  it("既定では絞り込まず、すべてのクラスタを描く", async () => {
+    await renderViewer(denseConfig);
+    expect(treemapIds()).toHaveLength(fixture.clusters.length);
+    await flush();
+  });
+
+  it("表示設定で ON にすると、最下層は濃い意見グループだけになり、上の階層は残る", async () => {
+    await renderViewer(denseConfig);
+    await flush();
+    await toggleDenseTreemap();
+    const ids = treemapIds();
+    const upper = fixture.clusters.filter((c) => c.level < 2).map((c) => c.id);
+    expect(ids).toEqual(expect.arrayContaining([...upper, "2_26", "2_86", "2_98"]));
+    expect(ids).toHaveLength(upper.length + 3);
+
+    // 一覧（TreemapDetails）も同じ絞り込みに揃う：1_7 を開くと、子は 2_86 だけ
+    fireEvent.click(screen.getByRole("button", { name: "AIと人間の共生を促進する権利の明確化と倫理的枠組みの構築" }));
+    await flush();
+    expect(screen.getByRole("button", { name: "AIの権利を通じた共存と社会発展の促進" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "AIに対する権利付与と人間との共存の倫理的基盤" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "AIにおける権利と倫理的配慮の重要性" })).not.toBeInTheDocument();
+  });
+
+  it("絞り込みで外れたクラスタを開いていたら、一つ上の階層を開き、OFF に戻すと元の階層に戻る", async () => {
+    await renderViewer(denseConfig);
+    await flush();
+    fireEvent.click(screen.getByRole("button", { name: "AIと人間の共生を促進する権利の明確化と倫理的枠組みの構築" }));
+    fireEvent.click(screen.getByRole("button", { name: "AIに対する権利付与と人間との共存の倫理的基盤" }));
+    await flush();
+    expect(screen.getByTestId("treemap")).toHaveAttribute("data-level", "2_18");
+
+    await toggleDenseTreemap();
+    expect(screen.getByTestId("treemap")).toHaveAttribute("data-level", "1_7");
+    expect(
+      screen.getByRole("heading", { name: "表示中: AIと人間の共生を促進する権利の明確化と倫理的枠組みの構築" }),
+    ).toBeInTheDocument();
+
+    await toggleDenseTreemap();
+    expect(screen.getByTestId("treemap")).toHaveAttribute("data-level", "2_18");
+  });
+
+  it("条件に合う最下層のクラスタが 0 件なら、ON でも絞り込まない", async () => {
+    // 既定の最小件数 5 では、fixture の最下層（1 件ずつ）はどれも残らない
+    await renderViewer({ visualizationConfig: { defaultChart: "treemap" } } as Partial<Result>);
+    await flush();
+    await toggleDenseTreemap();
+    expect(treemapIds()).toHaveLength(fixture.clusters.length);
   });
 });

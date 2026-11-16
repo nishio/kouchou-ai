@@ -14,6 +14,9 @@ type Props = {
   onToggleClusterLabels?: (show: boolean) => void;
   showConvexHull?: boolean;
   onToggleConvexHull?: (show: boolean) => void;
+  /** 階層図（ツリーマップ）の最下層にも濃い意見グループの絞り込みを使うか（#60） */
+  denseTreemap?: boolean;
+  onToggleDenseTreemap?: (enabled: boolean) => void;
 };
 
 export function DisplaySettingDialog({
@@ -25,6 +28,8 @@ export function DisplaySettingDialog({
   onToggleClusterLabels,
   showConvexHull = true,
   onToggleConvexHull,
+  denseTreemap = false,
+  onToggleDenseTreemap,
 }: Props) {
   const messages = useMessages();
   const [maxDensity, setMaxDensity] = useState(currentMaxDensity);
@@ -78,6 +83,20 @@ export function DisplaySettingDialog({
             <Text fontSize="sm" mb={5}>
               {messages.denseSettingsDescription}
             </Text>
+            {onToggleDenseTreemap && (
+              <Box p={2} borderRadius="md" borderWidth="1px" borderColor="gray.200" mb={5}>
+                <HStack gap={2} alignItems="center">
+                  <Text fontSize="sm">{messages.denseTreemap}</Text>
+                  <Spacer />
+                  <Switch
+                    checked={denseTreemap}
+                    onChange={() => onToggleDenseTreemap(!denseTreemap)}
+                    size="sm"
+                    inputProps={{ "aria-label": messages.denseTreemap }}
+                  />
+                </HStack>
+              </Box>
+            )}
             <Slider
               label={messages.densityPercentLabel(maxDensity * 100)}
               step={0.1}
