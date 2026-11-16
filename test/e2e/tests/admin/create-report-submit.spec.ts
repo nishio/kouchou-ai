@@ -142,9 +142,34 @@ test.describe("管理画面 - 作成の送信内容", () => {
       mergeLabelling: "E2E 統合ラベリングプロンプト",
       overview: "E2E 要約プロンプト",
     });
-    // 作成画面にはパブコメモードの切り替えが無く、常に既定値（true）で送られる
+    // 「csv出力モード」（パブコメモード）に触らなければ既定値の true で送られる
     expect(body.is_pubcom).toBe(true);
     // APIキー欄を空にしたときは、利用者のキーを送らずサーバー設定を使う
     expect(hasUserApiKey).toBe(false);
+  });
+
+  test("「csv出力モード」を外すと is_pubcom: false で送られる", async ({ page, request }) => {
+    const reportId = uniqueReportId("e2e-pubcom");
+    await page.getByLabel("ID", { exact: true }).fill(reportId);
+    await page.locator('input[type="file"]').setInputFiles(path.resolve(__dirname, "../../fixtures/sample.csv"));
+    await expect(page.getByRole("combobox", { name: "コメントカラム選択" })).toHaveValue("comment");
+
+    // パブコメモード（isPubcomMode）の切り替えは、画面では「csv出力モード」という名前で出ている
+    await page.getByRole("button", { name: "レポート生成設定" }).click();
+    const pubcomCheckbox = page.getByRole("checkbox", { name: "csv出力モード" });
+    await expect(pubcomCheckbox).toBeChecked();
+    // Chakra の Checkbox は input を見えなくしているので、uncheck() ではなくラベルを押して切り替える
+    await page.locator("label", { hasText: "csv出力モード" }).click();
+    await expect(pubcomCheckbox).not.toBeChecked();
+
+    await page.getByRole("button", { name: "作成前の確認へ" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByText("コメント件数：3件（非空：3件）")).toBeVisible();
+    await dialog.getByRole("button", { name: "未確認のまま作成を開始" }).click();
+    await page.waitForURL(/\/$/);
+
+    const { body } = await fetchCreatedReport(request, reportId);
+    expect(body.input).toBe(reportId);
+    expect(body.is_pubcom).toBe(false);
   });
 });
