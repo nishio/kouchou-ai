@@ -144,19 +144,26 @@ export function Analysis({ result }: ReportProps) {
             <Icon mb={2}>
               <ClipboardCheckIcon size={"30px"} />
             </Icon>
-            <HStack gap={1} alignItems={"center"}>
+            {level2ClusterNum !== undefined ? (
+              // 2 階層のレポートは、各階層の数を階層名つきで並べる。
+              // 「5→50」「50→5」のような矢印は、処理の順と読む順のどちらを指すかで読み方が割れるため使わない（#213）
+              <HStack gap={4} alignItems={"flex-start"} mb={1}>
+                {[level1ClusterNum, level2ClusterNum].map((num, index) => (
+                  <VStack key={messages.clusterLevel(index + 1)} gap={0}>
+                    <Text className={"headingColor"} fontSize={"3xl"} fontWeight={"bold"} lineHeight={1} mb={1}>
+                      {num.toLocaleString()}
+                    </Text>
+                    <Text fontSize={"2xs"} color={"gray.600"}>
+                      {messages.clusterLevel(index + 1)}
+                    </Text>
+                  </VStack>
+                ))}
+              </HStack>
+            ) : (
               <Text className={"headingColor"} fontSize={"3xl"} fontWeight={"bold"} lineHeight={1} mb={1}>
                 {level1ClusterNum.toLocaleString()}
               </Text>
-              {level2ClusterNum !== undefined ? (
-                <>
-                  <Text fontSize={"md"}>→</Text>
-                  <Text className={"headingColor"} fontSize={"3xl"} fontWeight={"bold"} lineHeight={1} mb={1}>
-                    {level2ClusterNum.toLocaleString()}
-                  </Text>
-                </>
-              ) : null}
-            </HStack>
+            )}
             <Text fontSize={"xs"}>{messages.clusterCount}</Text>
           </VStack>
         </Tooltip>

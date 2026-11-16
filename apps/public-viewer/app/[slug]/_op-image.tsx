@@ -185,7 +185,7 @@ function Footer() {
   );
 }
 
-function Stats({
+export function Stats({
   result,
   clusterNum,
 }: {
@@ -276,10 +276,13 @@ function Stats({
           </svg>
           <div style={{ display: "flex" }}>
             {level1ClusterNum.toLocaleString()}
-            {level2ClusterNum !== undefined ? `→${level2ClusterNum.toLocaleString()}` : ""}
+            {level2ClusterNum !== undefined ? ` / ${level2ClusterNum.toLocaleString()}` : ""}
           </div>
         </div>
-        <div style={{ fontSize: 18, marginLeft: "40px" }}>集約した意見グループ数</div>
+        {/* 2 階層は「第1階層 / 第2階層」の順で並べ、矢印で処理や読む順を示さない（#213） */}
+        <div style={{ fontSize: 18, marginLeft: "40px" }}>
+          {level2ClusterNum !== undefined ? "集約した意見グループ数（第1階層 / 第2階層）" : "集約した意見グループ数"}
+        </div>
       </div>
     </div>
   );

@@ -1,7 +1,8 @@
 /**
  * @jest-environment node
  */
-import { fetchApiWithRetry, fetchFont } from "../_op-image";
+import { renderToStaticMarkup } from "react-dom/server";
+import { Stats, fetchApiWithRetry, fetchFont } from "../_op-image";
 
 jest.mock("next/og", () => ({ ImageResponse: jest.fn() }));
 
@@ -57,5 +58,24 @@ describe("fetchApiWithRetry", () => {
     fetchMock.mockRejectedValue(new TypeError("fetch failed"));
     await expect(fetchApiWithRetry("http://api/reports/x", {}, 2, 0)).rejects.toThrow("fetch failed");
     expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("OGP 画像の意見グループ数（#213）", () => {
+  const baseResult = { comment_num: 20, arguments: new Array(12).fill({}) } as unknown as Parameters<
+    typeof Stats
+  >[0]["result"];
+
+  it("2 階層は矢印を使わず「第1階層 / 第2階層」の順で並べ、見出しに階層名を添える", () => {
+    const html = renderToStaticMarkup(Stats({ result: baseResult, clusterNum: { 1: 5, 2: 50 } }));
+    expect(html).not.toContain("→");
+    expect(html).toContain("5 / 50");
+    expect(html).toContain("集約した意見グループ数（第1階層 / 第2階層）");
+  });
+
+  it("1 階層は数だけを出し、見出しは従来どおり", () => {
+    const html = renderToStaticMarkup(Stats({ result: baseResult, clusterNum: { 1: 7 } }));
+    expect(html).not.toContain(" / ");
+    expect(html).toContain("集約した意見グループ数<");
   });
 });
