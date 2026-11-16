@@ -29,7 +29,15 @@
 - GET /admin/reports
   - レポート一覧(公開前含む)
 - POST /admin/reports
-  - レポート作成
+  - レポート作成（202 を返す。`E2E_TEST=true` のときは受け取った本文をレポート ID ごとに控える）
+- POST /admin/spreadsheet/import
+  - スプレッドシートの取り込み（外部には取りに行かず、取り込んだことにする）
+- GET /admin/spreadsheet/data/:fileName
+  - 取り込んだスプレッドシートのデータ（固定の 3 件）
+- DELETE /admin/inputs/:fileName
+  - 取り込んだデータの削除
+- GET /e2e/created-reports/:slug
+  - E2E 用。POST /admin/reports で受け取った本文を読み戻す（`E2E_TEST=true` のときだけ）
 
 ## metadata
 - reporter: string
