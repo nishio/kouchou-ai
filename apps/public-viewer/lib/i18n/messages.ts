@@ -91,6 +91,7 @@ const ja = {
   parentCluster: (label: string) => `所属: ${label}`,
   unknownParentCluster: "不明",
   parentAttributionHeading: "濃い意見グループの第一階層クラスタへの帰属",
+  outsideDensePointsNote: "薄い灰色の小さな点は、濃い意見グループに入らない意見です。",
   hiddenInLegend: "（非表示）",
 
   // 表示設定ダイアログ
@@ -285,6 +286,7 @@ const en: Messages = {
   parentCluster: (label) => `Top-level cluster: ${label}`,
   unknownParentCluster: "Unknown",
   parentAttributionHeading: "Top-level cluster of each dense opinion group",
+  outsideDensePointsNote: "Small light-gray points are opinions outside the dense opinion groups.",
   hiddenInLegend: " (hidden)",
 
   displaySettingsDescription: 'Settings for the "Overview", "Detailed clusters" and "Dense opinions" views.',
@@ -472,6 +474,7 @@ const ko: Messages = {
   parentCluster: (label) => `소속: ${label}`,
   unknownParentCluster: "알 수 없음",
   parentAttributionHeading: "밀집 의견 그룹이 속한 제1계층 클러스터",
+  outsideDensePointsNote: "옅은 회색의 작은 점은 밀집 의견 그룹에 들지 않는 의견입니다.",
   hiddenInLegend: " (숨김)",
 
   displaySettingsDescription: "「전체」「세부 클러스터」「밀집 의견 그룹」에 관한 설정 항목입니다.",

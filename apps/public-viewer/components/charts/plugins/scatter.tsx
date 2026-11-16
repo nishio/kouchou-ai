@@ -87,6 +87,7 @@ export const scatterPlugin: ChartPlugin = {
         }
         onSelectCluster={onSelectCluster}
         showParentAttribution={selectedChart === "scatterDensity"}
+        showOutsidePoints={selectedChart === "scatterDensity"}
         isFullscreen={isFullscreen}
       />
     );

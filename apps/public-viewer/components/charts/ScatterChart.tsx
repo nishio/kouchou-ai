@@ -78,6 +78,9 @@ const WHEEL_ZOOM_UNLOCK_DELAY_MS = 600;
 const WHEEL_GUARD_FADE_MS = 500;
 
 const annotationLabelWidth = 228; // ラベルの最大横幅を指定
+// 濃い意見ビューで、濃い意見グループに入らない意見の点（#638）
+const OUTSIDE_POINT_SIZE = 5;
+const OUTSIDE_POINT_COLOR = "#c4c4c4";
 const annotationFontsize = 14; // フォントサイズを指定
 
 // ラベルのテキストを折り返すための関数
@@ -134,6 +137,8 @@ type Props = {
   onSelectCluster?: (clusterId: string) => void;
   // 濃い意見グループが属する第一階層クラスタの帰属を可視化するか（scatterDensity モードで true）
   showParentAttribution?: boolean;
+  // 表示中のクラスタ（濃い意見グループ）に入らない意見も、薄い灰色の小さな点で背景に描くか（scatterDensity モードで true、#638）
+  showOutsidePoints?: boolean;
   // 全画面表示か。全画面ではページがスクロールしないので、ホイールの拡大縮小を常に有効にする
   isFullscreen?: boolean;
 };
@@ -155,6 +160,7 @@ export function ScatterChart({
   showConvexHull,
   onSelectCluster,
   showParentAttribution,
+  showOutsidePoints,
   isFullscreen,
 }: Props) {
   const { language, messages } = useLanguage();
@@ -695,8 +701,30 @@ export function ScatterChart({
     });
   }, [showConvexHull, targetClusters, argumentsByCluster]);
 
-  // 凸包を最背面に挿入（scatter点の下に描画）
-  const allPlotData = useMemo(() => [...hullTraces, ...plotData], [hullTraces, plotData]);
+  // 表示中のクラスタに入らない意見（濃い意見ビューで濃い意見グループから外れた意見）を、全体の分布の中で
+  // 濃い意見グループがどこにあるかを見せるために背景に描く（#638）。
+  // 属性フィルタで外れた点（#cccccc・大きさ 7）と見分けられるよう、さらに薄く小さくし、ホバー・クリックの対象にしない
+  const outsideTrace = useMemo(() => {
+    if (!showOutsidePoints) return null;
+    const targetIds = new Set(targetClusters.map((cluster) => cluster.id));
+    const outside = allArguments.filter((arg) => !arg.cluster_ids.some((id) => targetIds.has(id)));
+    if (outside.length === 0) return null;
+    return {
+      x: outside.map((arg) => arg.x),
+      y: outside.map((arg) => arg.y),
+      mode: "markers",
+      marker: { size: OUTSIDE_POINT_SIZE, color: OUTSIDE_POINT_COLOR, opacity: 0.8 },
+      type: "scattergl",
+      hoverinfo: "skip",
+      showlegend: false,
+    };
+  }, [showOutsidePoints, targetClusters, allArguments]);
+
+  // 凸包と濃い意見グループ外の点を最背面に挿入（scatter点の下に描画）
+  const allPlotData = useMemo(
+    () => [...(outsideTrace ? [outsideTrace] : []), ...hullTraces, ...plotData],
+    [outsideTrace, hullTraces, plotData],
+  );
 
   // アノテーションの設定
   // 意見が 0 件のクラスタ（指定カテゴリ分類で残った「その他 0件」など）は中心が決まらないので、
@@ -889,6 +917,11 @@ export function ScatterChart({
           <Text fontSize="xs" fontWeight="bold" color="gray.600" mb={1}>
             {messages.parentAttributionHeading}
           </Text>
+          {outsideTrace && (
+            <Text fontSize="xs" color="gray.600" mb={1}>
+              {messages.outsideDensePointsNote}
+            </Text>
+          )}
           <Flex wrap="wrap" gap={3}>
             {parentAttribution.groups.map((group) => (
               <Box key={group.parentId} border="1px solid #e2e8f0" borderRadius="md" px={2} py={1} bg="white">
