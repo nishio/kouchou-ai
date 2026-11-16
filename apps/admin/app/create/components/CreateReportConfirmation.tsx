@@ -6,6 +6,7 @@ import { useRef, useState } from "react";
 import type { createReport } from "../api/createReport";
 import type { ModelOption } from "../hooks/useModelCatalog";
 import { type CostBand, type CostEstimate, JPY_PER_USD, estimateCost, formatUsdRange } from "../utils/costEstimate";
+import { ApiBillingDocsLink } from "./EnvironmentCheckDialog/ApiBillingDocsLink";
 import { azureErrorMessage } from "./EnvironmentCheckDialog/azureErrorMessage";
 import { verifyApiKey } from "./EnvironmentCheckDialog/verifyApiKey";
 
@@ -192,6 +193,7 @@ export function CreateReportConfirmation({
               <Text fontWeight="bold">API接続チェック</Text>
               <Text as="output" display="block" aria-live="polite" mt="2">
                 {check === "unknown_error" && request.provider === "azure" ? azureErrorMessage : checkMessages[check]}
+                {(check === "insufficient_quota" || check === "rate_limit_error") && <ApiBillingDocsLink />}
                 {checkFailed && checkDetail && (
                   <Text as="span" display="block" mt="1" fontSize="sm" color="font.secondary">
                     エラー詳細：{checkDetail}

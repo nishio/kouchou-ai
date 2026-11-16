@@ -75,6 +75,17 @@ it.each([
   expect(await screen.findByText(new RegExp(`^${text}`))).toBeVisible();
   expect(verify).toHaveBeenCalledWith("openai", "test-key", prepared.request.model, undefined);
   expect(screen.queryByText(/エラー詳細：/)).not.toBeInTheDocument();
+  // 残高不足・レート制限のときだけ、見分け方と対処の説明書へリンクする（#292）
+  const docsLink = screen.queryByRole("link", { name: /APIの課金と429エラー/ });
+  if (error_type === "insufficient_quota" || error_type === "rate_limit_error") {
+    expect(docsLink).toHaveAttribute(
+      "href",
+      "https://digitaldemocracy2030.github.io/kouchou-ai/self-hosting/api-billing-and-rate-limits/",
+    );
+    expect(docsLink).toHaveAttribute("target", "_blank");
+  } else {
+    expect(docsLink).not.toBeInTheDocument();
+  }
 });
 
 it("プロバイダーのエラー詳細があれば結果の下に表示し、再確認で成功したら消す", async () => {

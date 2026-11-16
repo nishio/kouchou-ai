@@ -177,6 +177,10 @@ describe("EnvironmentCheckDialog", () => {
 
     expect(await screen.findByText(/エラーが見つかりました。/)).toBeInTheDocument();
     expect(await screen.findByText(/デポジット残高が不足しています。チャージしてください。/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /APIの課金と429エラー/ })).toHaveAttribute(
+      "href",
+      "https://digitaldemocracy2030.github.io/kouchou-ai/self-hosting/api-billing-and-rate-limits/",
+    );
   });
 
   it("レート制限エラーの場合にエラーメッセージが表示される", async () => {
@@ -201,6 +205,7 @@ describe("EnvironmentCheckDialog", () => {
     expect(
       await screen.findByText(/APIのレート制限に達しました。時間をおいて再度お試しください。/),
     ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /APIの課金と429エラー/ })).toBeInTheDocument();
   });
 
   it("不明なエラーの場合にエラーメッセージが表示される", async () => {
@@ -225,6 +230,7 @@ describe("EnvironmentCheckDialog", () => {
     expect(
       await screen.findByText(/不明なエラーが発生しました。APIの設定や接続を再確認してください。/),
     ).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /APIの課金と429エラー/ })).not.toBeInTheDocument();
   });
 
   it("不明なエラーにプロバイダーのエラー詳細があれば固定文の下に表示する", async () => {
